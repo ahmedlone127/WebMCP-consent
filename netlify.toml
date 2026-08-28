@@ -1,0 +1,7 @@
+[build]
+  publish = "webmcp-consent"
+
+[[redirects]]
+  from = "/"
+  to = "/demo/index.html"
+  status = 200
