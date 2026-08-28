@@ -228,11 +228,21 @@ export class ConsentLayer {
       },
     };
 
+    const description =
+      `${def.description} This does NOT execute. It stages a proposal that the operator ` +
+      `must approve in the page. The call will not return until they act on it.`;
+
+    // WebMCP implementations budget tool description length (Chrome: 500
+    // chars). The boilerplate above already spends ~135 of them, so a
+    // developer's own description can push a registered tool over the limit
+    // and get silently truncated by the runtime.
+    if (description.length > 500) {
+      console.warn(`[webmcp-consent] ${def.name}: description is ${description.length} chars, over the ~500 char budget most WebMCP runtimes enforce. Shorten def.description.`);
+    }
+
     return {
       name: def.name,
-      description:
-        `${def.description} This does NOT execute. It stages a proposal that the operator ` +
-        `must approve in the page. The call will not return until they act on it.`,
+      description,
       inputSchema,
       annotations: def.annotations,
       async execute(raw) {
