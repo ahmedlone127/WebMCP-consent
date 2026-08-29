@@ -120,7 +120,11 @@ export class ConsentLayer {
 
   get pending() { return this._pending.map(({ _resolve, _reject, _timer, ...rest }) => rest); }
   get audit() { return [...this._audit]; }
-  get toolNames() { return this._visibleDefs().map((d) => d.name); }
+  get toolNames() {
+    const names = this._visibleDefs().map((d) => d.name);
+    if (this.exposeHistory) names.push('get_action_history');
+    return names;
+  }
 
   /** Approve a staged proposal. Re-checks the guard before committing. */
   async approve(id) {
