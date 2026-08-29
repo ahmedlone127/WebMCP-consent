@@ -5,3 +5,8 @@
   from = "/"
   to = "/demo/index.html"
   status = 200
+
+[[headers]]
+  for = "/.well-known/webmcp"
+  [headers.values]
+    Content-Type = "application/json"

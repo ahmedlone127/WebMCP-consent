@@ -1,0 +1,15 @@
+{
+  "name": "webmcp-consent",
+  "description": "A consent layer for WebMCP tools. Reads run freely; writes stage a proposal a human must approve in the page before it executes.",
+  "note": "No .well-known/webmcp schema has been formally specified by the WebMCP community group as of writing. This file is not a claim of conformance to a ratified standard -- it is an honest, best-effort discovery aid listing what this page actually registers at runtime via navigator.modelContext.registerTool(). See https://github.com/webmachinelearning/webmcp for the spec this project targets.",
+  "url": "https://webmcp-consent-7d22c356.netlify.app/",
+  "repository": "https://github.com/ahmedlone127/WebMCP-consent",
+  "license": "MIT",
+  "tools": [
+    { "name": "search_orders", "kind": "read", "description": "List orders with customer, total and fulfilment status." },
+    { "name": "get_customer_messages", "kind": "read", "description": "Read the customer message inbox." },
+    { "name": "propose_refund", "kind": "staged", "description": "Refund an order. Requires operator approval in the page before it executes." },
+    { "name": "propose_price_change", "kind": "staged", "description": "Change a catalogue price. Requires operator approval in the page before it executes. Only registered for manager/owner roles." },
+    { "name": "get_action_history", "kind": "read", "description": "Read the audit log of what the agent and operator have each done this session." }
+  ]
+}
