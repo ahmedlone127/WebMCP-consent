@@ -65,27 +65,103 @@
   .note{padding:12px 16px;font-size:12px;color:var(--ink-2);background:var(--bg);
     border-top:1px solid var(--line-2);border-radius:0 0 4px 4px}
   code{font:11px var(--mono);background:var(--bg);padding:1px 4px;border-radius:2px}
+
+  /* ------------------------------------------------------------- login --- */
+  .login{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+  .login-card{background:var(--surface);border:1px solid var(--line);border-radius:8px;
+    padding:32px;width:100%;max-width:380px;box-shadow:0 1px 3px rgba(23,28,35,.06)}
+  .login-brand{font-weight:650;font-size:19px;letter-spacing:-.01em;text-align:center}
+  .login-sub{color:var(--ink-2);font-size:13px;text-align:center;margin-top:4px}
+  .personas{margin-top:24px;display:flex;flex-direction:column;gap:8px}
+  .persona{display:flex;align-items:center;gap:12px;padding:11px 12px;border:1px solid var(--line);
+    border-radius:6px;background:var(--surface);cursor:pointer;text-align:left;width:100%;font:inherit;color:inherit}
+  .persona:hover{border-color:var(--ink-3);background:var(--bg)}
+  .persona:focus-visible{outline:2px solid var(--ink-3);outline-offset:1px}
+  .avatar{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    color:#fff;font-size:12px;font-weight:650;flex-shrink:0}
+  .persona-who{flex:1;min-width:0}
+  .persona-name{font-size:13px;font-weight:600}
+  .persona-title{font-size:12px;color:var(--ink-2)}
+
+  /* --------------------------------------------------------- user chip --- */
+  .userchip{display:flex;align-items:center;gap:9px;padding:5px 10px 5px 5px;border:1px solid var(--line);
+    border-radius:20px;background:var(--surface);cursor:pointer;position:relative}
+  .userchip:hover{border-color:var(--ink-3)}
+  .userchip .avatar{width:26px;height:26px;font-size:10px}
+  .who{display:flex;flex-direction:column;line-height:1.25}
+  .who-name{font-size:12px;font-weight:600}
+  .who-title{font-size:10.5px;color:var(--ink-2)}
+  .chev{color:var(--ink-3);font-size:10px;margin-left:2px}
+  .usermenu{position:absolute;top:calc(100% + 6px);right:0;background:var(--surface);border:1px solid var(--line);
+    border-radius:6px;box-shadow:0 4px 14px rgba(23,28,35,.1);min-width:200px;padding:6px;z-index:10;display:none}
+  .usermenu.open{display:block}
+  .usermenu-label{font:10px var(--mono);text-transform:uppercase;letter-spacing:.06em;color:var(--ink-3);padding:6px 8px 4px}
+  .usermenu-item{display:flex;align-items:center;gap:10px;padding:7px 8px;border-radius:4px;cursor:pointer;width:100%;
+    border:0;background:none;text-align:left;font:inherit;color:inherit}
+  .usermenu-item:hover{background:var(--bg)}
+  .usermenu-item .avatar{width:24px;height:24px;font-size:9.5px}
+  .usermenu-item.active{background:var(--bg)}
+
+  /* ----------------------------------------------------------- orders --- */
+  .filter-row{display:flex;align-items:center;gap:8px;padding:10px 16px 0}
+  .filter-row select{font-size:11.5px}
+  .pager{display:flex;align-items:center;justify-content:space-between;padding:10px 16px 4px;
+    border-top:1px solid var(--line-2);margin-top:4px}
+  .pager-btn{font:11px var(--mono);padding:5px 10px;border:1px solid var(--line);border-radius:3px;
+    background:var(--surface);color:inherit;cursor:pointer}
+  .pager-btn:disabled{opacity:.4;cursor:default}
+  .pager-btn:not(:disabled):hover{border-color:var(--ink-3)}
+  .pager-label{font-size:11.5px;color:var(--ink-2)}
+  .status-badge{font:10px var(--mono);padding:1px 6px;border-radius:9px;display:inline-block;margin-top:2px}
+  .status-delivered{background:#E7F2F1;color:#0F6D68}
+  .status-shipped{background:#EAF0FB;color:#3A5BA0}
+  .status-processing{background:#FDF4E5;color:#B4690E}
+  .status-refunded{background:#F1F1F3;color:var(--ink-2)}
 </style>
 </head>
 <body>
 
+<div class="login" id="login">
+  <div class="login-card">
+    <div class="login-brand">Ledger</div>
+    <div class="login-sub">Choose an account to sign in</div>
+    <div class="personas" id="personas"></div>
+  </div>
+</div>
+
+<div id="app" style="display:none">
 <header>
   <div class="brand">Ledger<span>operations console</span></div>
   <div class="spacer"></div>
-  <label class="muted" for="role">Signed in as</label>
-  <select id="role">
-    <option value="support">Support rep</option>
-    <option value="manager">Manager</option>
-    <option value="owner">Owner</option>
-  </select>
   <div class="pill" id="status">checking…</div>
+  <div class="userchip" id="userchip">
+    <span class="avatar" id="chipAvatar"></span>
+    <span class="who"><span class="who-name" id="chipName"></span><span class="who-title" id="chipTitle"></span></span>
+    <span class="chev">⌄</span>
+    <div class="usermenu" id="usermenu"></div>
+  </div>
 </header>
 
 <main>
   <div>
     <section>
-      <h2>Orders</h2>
+      <h2>Orders <span class="count" id="ocount">0</span></h2>
+      <div class="filter-row">
+        <label class="muted" for="statusFilter">Status</label>
+        <select id="statusFilter">
+          <option value="">All</option>
+          <option value="processing">Processing</option>
+          <option value="shipped">Shipped</option>
+          <option value="delivered">Delivered</option>
+          <option value="refunded">Refunded</option>
+        </select>
+      </div>
       <div class="body" id="orders"></div>
+      <div class="pager">
+        <button class="pager-btn" id="prevPage">← Prev</button>
+        <span class="pager-label" id="pageLabel"></span>
+        <button class="pager-btn" id="nextPage">Next →</button>
+      </div>
     </section>
     <section>
       <h2>Customer messages</h2>
@@ -109,7 +185,7 @@
     <section>
       <h2>Tools the agent can see <span class="count" id="tcount">0</span></h2>
       <div class="body" id="tools"></div>
-      <div class="note">Change the role above and watch this list change.</div>
+      <div class="note">Switch accounts (top right) and watch this list change.</div>
     </section>
     <section>
       <h2>Audit log</h2>
@@ -117,15 +193,47 @@
     </section>
   </div>
 </main>
+</div>
 
 <script type="module">
 import { createConsentLayer, mountApprovalQueue, mountAuditLog } from '../src/index.js';
 
 const orders = [
-  { id:'ORD-4417', customer:'Kamran Textiles', total:184.00, status:'delivered' },
-  { id:'ORD-4418', customer:'Bright Salon Co', total:512.50, status:'shipped' },
-  { id:'ORD-4419', customer:'Nadia Imports',   total:2340.00, status:'processing' },
+  { id:'ORD-4401', customer:'Prime Hardware Co',          total:342.10,  status:'delivered' },
+  { id:'ORD-4402', customer:'Willow Creek Florals',       total:89.25,   status:'delivered' },
+  { id:'ORD-4403', customer:'Desai Fabrics',              total:1204.00, status:'shipped' },
+  { id:'ORD-4404', customer:'Coastal Salon Supply',       total:276.40,  status:'processing' },
+  { id:'ORD-4405', customer:'Beacon Print Shop',          total:58.90,   status:'delivered' },
+  { id:'ORD-4406', customer:'Okafor & Sons Textiles',     total:945.00,  status:'shipped' },
+  { id:'ORD-4407', customer:'Little Bloom Boutique',      total:132.75,  status:'delivered' },
+  { id:'ORD-4408', customer:'Sundar Imports',             total:1890.00, status:'processing' },
+  { id:'ORD-4409', customer:'Riverside Hair Studio',      total:410.00,  status:'shipped' },
+  { id:'ORD-4410', customer:'Marlowe Stationery',         total:67.50,   status:'delivered' },
+  { id:'ORD-4411', customer:'Kestrel Leatherworks',       total:528.00,  status:'refunded' },
+  { id:'ORD-4412', customer:'Bloomfield Nails & Spa',     total:198.20,  status:'delivered' },
+  { id:'ORD-4413', customer:'Anand Wholesale Textiles',   total:2210.00, status:'shipped' },
+  { id:'ORD-4414', customer:'Copperline Hardware',        total:76.30,   status:'delivered' },
+  { id:'ORD-4415', customer:'Velvet & Co Salon',          total:359.99,  status:'processing' },
+  { id:'ORD-4416', customer:'Harborview Imports',         total:1420.00, status:'shipped' },
+  { id:'ORD-4417', customer:'Kamran Textiles',            total:184.00,  status:'delivered' },
+  { id:'ORD-4418', customer:'Bright Salon Co',            total:512.50,  status:'shipped' },
+  { id:'ORD-4419', customer:'Nadia Imports',              total:2340.00, status:'processing' },
+  { id:'ORD-4420', customer:'Solstice Print & Design',    total:94.60,   status:'delivered' },
+  { id:'ORD-4421', customer:'Fenwick Hardware Supply',    total:621.00,  status:'refunded' },
+  { id:'ORD-4422', customer:'Amara Beauty Bar',           total:143.80,  status:'shipped' },
+  { id:'ORD-4423', customer:'Tallgrass Textiles',         total:875.25,  status:'processing' },
+  { id:'ORD-4424', customer:'Whitfield & Daughters Imports', total:306.00, status:'delivered' },
 ];
+
+const PERSONAS = {
+  support: { name:'Maria Santos', title:'Support Rep', initials:'MS', color:'#0F6D68' },
+  manager: { name:'James Okafor', title:'Ops Manager',  initials:'JO', color:'#B4690E' },
+  owner:   { name:'Aisha Rahman', title:'Owner',        initials:'AR', color:'#3A5BA0' },
+};
+
+const PAGE_SIZE = 8;
+let ordersPage = 1;
+let statusFilter = '';
 
 const messages = [
   { from:'Kamran Textiles', text:'One pair of scissors arrived with a chipped blade. Can you help?' },
@@ -205,11 +313,31 @@ consent.registerStaged({
 
 /* --------------------------------------------------------------- render --- */
 
-function render() {
-  $('orders').innerHTML = orders.map(o => `
+function filteredOrders() {
+  return orders.filter(o => !statusFilter || o.status === statusFilter);
+}
+
+function renderOrders() {
+  const filtered = filteredOrders();
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  ordersPage = Math.min(ordersPage, totalPages);
+  const start = (ordersPage - 1) * PAGE_SIZE;
+  const pageItems = filtered.slice(start, start + PAGE_SIZE);
+
+  $('ocount').textContent = filtered.length;
+  $('orders').innerHTML = pageItems.length ? pageItems.map(o => `
     <div class="row"><span class="id">${o.id}</span>
-      <span class="grow">${o.customer}<div class="muted">${o.status}</div></span>
-      <span class="amt">${money(o.total)}</span></div>`).join('');
+      <span class="grow">${o.customer}<div><span class="status-badge status-${o.status}">${o.status}</span></div></span>
+      <span class="amt">${money(o.total)}</span></div>`).join('')
+    : '<div class="muted" style="padding:10px 0">No orders match this filter.</div>';
+
+  $('pageLabel').textContent = `Page ${ordersPage} of ${totalPages}`;
+  $('prevPage').disabled = ordersPage <= 1;
+  $('nextPage').disabled = ordersPage >= totalPages;
+}
+
+function render() {
+  renderOrders();
 
   $('messages').innerHTML = messages.map(m => `
     <div class="msg">
@@ -221,11 +349,75 @@ function render() {
   $('tools').innerHTML = names.map(n => `<div class="tool">${n}</div>`).join('');
 }
 
+/* ----------------------------------------------------------- accounts --- */
+
+function renderPersonas() {
+  $('personas').innerHTML = Object.entries(PERSONAS).map(([role, p]) => `
+    <button class="persona" data-role="${role}">
+      <span class="avatar" style="background:${p.color}">${p.initials}</span>
+      <span class="persona-who">
+        <div class="persona-name">${p.name}</div>
+        <div class="persona-title">${p.title}</div>
+      </span>
+    </button>`).join('');
+
+  $('personas').querySelectorAll('.persona').forEach(btn => {
+    btn.addEventListener('click', () => signIn(btn.dataset.role));
+  });
+}
+
+function renderChip() {
+  const p = PERSONAS[consent.role];
+  $('chipAvatar').style.background = p.color;
+  $('chipAvatar').textContent = p.initials;
+  $('chipName').textContent = p.name;
+  $('chipTitle').textContent = p.title;
+
+  $('usermenu').innerHTML = '<div class="usermenu-label">Switch account</div>' +
+    Object.entries(PERSONAS).map(([role, p2]) => `
+      <button class="usermenu-item${role === consent.role ? ' active' : ''}" data-role="${role}">
+        <span class="avatar" style="background:${p2.color}">${p2.initials}</span>
+        <span><div>${p2.name}</div><div class="who-title">${p2.title}</div></span>
+      </button>`).join('');
+
+  $('usermenu').querySelectorAll('.usermenu-item').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      consent.setRole(btn.dataset.role);
+      $('usermenu').classList.remove('open');
+      renderChip();
+      render();
+    });
+  });
+}
+
+function signIn(role) {
+  consent.setRole(role);
+  $('login').style.display = 'none';
+  $('app').style.display = '';
+  renderChip();
+  render();
+}
+
+$('userchip').addEventListener('click', (e) => {
+  e.stopPropagation();
+  $('usermenu').classList.toggle('open');
+});
+document.addEventListener('click', () => $('usermenu').classList.remove('open'));
+
+$('statusFilter').addEventListener('change', (e) => {
+  statusFilter = e.target.value;
+  ordersPage = 1;
+  renderOrders();
+});
+$('prevPage').addEventListener('click', () => { ordersPage--; renderOrders(); });
+$('nextPage').addEventListener('click', () => { ordersPage++; renderOrders(); });
+
 mountApprovalQueue(consent, '#approvals');
 mountAuditLog(consent, '#log');
 consent.subscribe(render);
 
-$('role').addEventListener('change', e => { consent.setRole(e.target.value); render(); });
+renderPersonas();
 render();
 </script>
 </body>
