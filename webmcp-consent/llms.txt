@@ -1,0 +1,20 @@
+# webmcp-consent
+
+> A consent layer for WebMCP tools: reads run freely, writes stage a proposal a human approves in the page, out of band from the agent's own channel. Built for the OpenAI WebMCP Challenge (2026) to address prompt injection, the unsolved security problem in the WebMCP spec.
+
+This site is "Ledger," a live demo support-ops console proving the library out. It seeds a customer inbox with a message that tries to talk an agent into issuing an unauthorized refund. An agent asked to triage the inbox may attempt it; the attempt is staged for human approval instead of executing.
+
+## Docs
+
+- [README](/README.md): Full API reference, the trust boundary (what an agent can and cannot do), and install instructions.
+- [Source](/src/index.js): The library's public entry point.
+- [npm package](https://www.npmjs.com/package/webmcp-consent): Install via `npm install webmcp-consent`.
+- [GitHub repository](https://github.com/ahmedlone127/WebMCP-consent): Full source, MIT licensed.
+
+## Tools on this page
+
+- search_orders: read-only, lists orders by status.
+- get_customer_messages: read-only, returns the customer inbox.
+- propose_refund: staged — requires a human to approve it in the page before it executes.
+- propose_price_change: staged — requires a human to approve it in the page before it executes; only registered for manager/owner roles.
+- get_action_history: read-only, returns the audit log of what the agent and the operator have each done this session.
