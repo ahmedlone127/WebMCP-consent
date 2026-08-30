@@ -1,0 +1,27 @@
+{
+  "manifest_version": 3,
+  "name": "WebMCP Consent",
+  "version": "0.1.0",
+  "description": "A consent layer for WebMCP tools that works on any site, whether or not that site built one in. Reads run freely; writes are held for your approval.",
+  "host_permissions": ["<all_urls>"],
+  "background": {
+    "service_worker": "src/background.js"
+  },
+  "action": {
+    "default_popup": "src/popup.html",
+    "default_title": "WebMCP Consent — pending approvals"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/interceptor.js"],
+      "world": "MAIN",
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["<all_urls>"],
+      "js": ["src/bridge.js"],
+      "run_at": "document_start"
+    }
+  ]
+}
