@@ -3,6 +3,7 @@
   "name": "WebMCP Consent",
   "version": "0.1.0",
   "description": "A consent layer for WebMCP tools that works on any site, whether or not that site built one in. Reads run freely; writes are held for your approval.",
+  "permissions": ["storage"],
   "host_permissions": ["<all_urls>"],
   "background": {
     "service_worker": "src/background.js"
