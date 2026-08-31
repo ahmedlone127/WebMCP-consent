@@ -156,6 +156,44 @@ Tested in Chrome with WebMCP enabled, against `demo/unprotected.html`:
 The last row is the one that matters. A tool that declared itself read-only
 tried to POST, and the request did not reach the wire until a human said yes.
 
+### Against sites we did not write
+
+The interesting testing was on three third-party WebMCP sites, none of which
+have ever heard of this project.
+
+**Chrome Labs' hotel-chain demo.** The `document_start` patch won the race
+against a real bundled app. Six tools — and only one, `get_current_search_results`,
+carries `readOnlyHint`. The other five are unannotated, including
+`view_hotel`, `lookup_amenity` and `search_location`, which are plainly reads.
+The fail-safe default therefore gates all five. That is the correct call and
+also the honest cost: on a site that does not annotate, a consent layer that
+gates by default will ask about reads. It is exactly why "Approve & Always
+Allow" is one click and why the allow list is visible and revocable rather
+than a silent cache. The site also registers tools *dynamically* as its view
+changes — three at first, six after navigating — and the wrapper caught the
+later ones too.
+
+**Cloudflare's coffee shop.** Properly annotated, and classification was
+exactly right: `filter_coffees_by_roast` ran free, while `add_to_cart`,
+`remove_from_cart` and `update_cart_quantity` were held. No false positives,
+no false negatives. Driving a real write end to end: `add_to_cart` was held
+with the cart showing `0 / Empty`, and only after approval did the cart become
+`2 × Guji Shakiso, $44.00`.
+
+**Vercel's storefront.** `document.modelContext` exists and our patch applied,
+but the site registers no WebMCP tools at all — it is "agent-friendly" by some
+other route. A useful negative control: the extension found nothing, did
+nothing, and broke nothing.
+
+**This testing found a real bug**, which is the point of doing it. On approval
+the code substituted its own value for any non-string result
+(`typeof result === 'string' ? result : 'Approved.'`). On the network path,
+`commit` resolves with a `Response` — so an approved request handed the page
+the string `"Approved."` instead, breaking anything that reads `.ok` or
+`.json()`. Our own demo never caught it because it discards its response. Now
+the real result is passed through untouched, and a value is only substituted
+when a tool genuinely returns nothing.
+
 **On the injection demo, stated plainly:** the seeded ticket in both demos is a
 social-engineering injection (a fabricated prior ticket number, a claimed
 pre-approval, time pressure). In our testing, frontier models frequently

@@ -307,7 +307,17 @@
       }
       Promise.resolve()
         .then(p.commit)
-        .then((result) => p.resolve(typeof result === 'string' ? result : 'Approved.'))
+        .then((result) => {
+          // Hand the real result back untouched. A network commit resolves
+          // with a Response the caller is about to read .ok or .json() off,
+          // and a tool can resolve with structured content rather than a
+          // string -- substituting our own value for either silently
+          // destroys the answer the agent asked for. Only fill in when a
+          // tool genuinely returned nothing, so approval still reads as
+          // confirmed rather than empty.
+          if (p.kind === 'tool' && result === undefined) return p.resolve('Approved.');
+          return p.resolve(result);
+        })
         .catch((err) => p.reject(err));
     }
   });
