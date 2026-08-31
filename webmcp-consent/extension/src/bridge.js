@@ -1,16 +1,26 @@
 /**
- * ISOLATED world -- the only place chrome.* APIs are reachable. Relays
- * between the page (interceptor.js, via window.postMessage) and the
- * extension's background service worker.
+ * ISOLATED world -- the only place chrome.* APIs are reachable. Relays between
+ * the page's MAIN world (interceptor.js) and the extension's background
+ * service worker.
+ *
+ * The link to the MAIN world is a private MessagePort, handed over at
+ * document_start before any page script has run. It is deliberately not
+ * window.postMessage: the interceptor has to live in the MAIN world to patch
+ * registerTool, so page scripts share that world and could otherwise read a
+ * proposal's id off the wire and post back a forged approval for it.
  *
  * Reloading the extension orphans every copy of this script already injected
  * into an open tab: chrome.runtime survives as an object but every call on it
- * throws "Extension context invalidated". Each such throw is an uncaught
- * error on the page, so an orphaned tab that keeps relaying messages produces
- * a stream of them. Every chrome.* call below is therefore guarded, and a
- * failed relay answers the page with a denial rather than leaving the tool's
- * promise hanging forever.
+ * throws "Extension context invalidated". Every chrome.* call below is
+ * therefore guarded, and a failed relay answers the page with a denial rather
+ * than leaving the tool's promise hanging forever.
  */
+
+let port = null;
+
+const ORPHANED =
+  'WebMCP Consent could not reach its approval queue, so nothing was run. ' +
+  'The extension was probably reloaded or updated -- reload this page to reconnect.';
 
 function alive() {
   try {
@@ -21,17 +31,11 @@ function alive() {
 }
 
 function reply(payload) {
-  window.postMessage({ source: 'webmcp-consent-ext-response', ...payload }, '*');
+  if (port) port.postMessage(payload);
 }
 
-const ORPHANED =
-  'WebMCP Consent could not reach its approval queue, so nothing was run. ' +
-  'The extension was probably reloaded or updated -- reload this page to reconnect.';
-
-window.addEventListener('message', (event) => {
-  if (event.source !== window) return;
-  const msg = event.data;
-  if (!msg || msg.source !== 'webmcp-consent-ext') return;
+function handleFromPage(msg) {
+  if (!msg || !msg.type) return;
 
   if (msg.type === 'PROPOSE') {
     if (!alive()) {
@@ -78,8 +82,21 @@ window.addEventListener('message', (event) => {
     } catch {
       reply({ type: 'CHECK_WHITELIST', id: msg.id, allowed: false });
     }
-    return;
   }
+}
+
+// The only thing accepted over window.postMessage is the one-time port
+// handover, and only the first one -- a later message claiming to be the
+// handshake is a page trying to substitute a channel it controls.
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (!event.data || event.data.__webmcpConsentPort !== true) return;
+  if (port) return;
+  const received = event.ports && event.ports[0];
+  if (!received) return;
+  port = received;
+  port.onmessage = (e) => handleFromPage(e.data);
+  port.start();
 });
 
 try {

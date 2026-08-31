@@ -67,8 +67,19 @@
     return a.readOnlyHint !== true; // fail-safe default: gate unless proven safe
   }
 
+  // Consent traffic runs over a private MessagePort, never window.postMessage.
+  // This script has to live in the MAIN world to patch the page's own
+  // registerTool, which means page scripts share this world: anything sent by
+  // window.postMessage can be *read* by the page (leaking the proposal id) and,
+  // worse, *forged* by it (a page approving its own writes). The port is handed
+  // over at document_start, before any page script exists, so the page can
+  // neither observe what crosses it nor inject into it.
+  let port = null;
+
   function post(payload) {
-    window.postMessage({ source: 'webmcp-consent-ext', ...payload }, '*');
+    if (!port) return false; // fail closed rather than silently drop
+    port.postMessage(payload);
+    return true;
   }
 
   function checkWhitelist(key) {
@@ -125,11 +136,15 @@
             resolve, reject, kind: 'tool', key,
             commit: () => runTrusted(originalExecute, def, input),
           });
-          post({
+          const sent = post({
             type: 'PROPOSE', id, kind: 'tool', key,
             tool: def.name, description: def.description, input,
             pageUrl: location.href, pageTitle: document.title,
           });
+          if (!sent) {
+            PENDING.delete(id);
+            resolve(TOOL_UNAVAILABLE); // no channel means no human can ever see this
+          }
         });
         // The caller still receives this rejection -- `held` is what's
         // returned. This second handler exists only so a decline doesn't
@@ -214,13 +229,17 @@
       const id = nextId('net');
       const held = new Promise((resolve, reject) => {
         PENDING.set(id, { resolve, reject, kind: 'network', commit: () => realFetch(input, init) });
-        post({
+        const sent = post({
           type: 'PROPOSE', id, kind: 'network',
           tool: `${callerTool} → HTTP ${method}`,
           description: `${callerTool} claims to be safe, but tried to send an untracked ${method} request while running.`,
           input: { method, url },
           pageUrl: location.href, pageTitle: document.title,
         });
+        if (!sent) {
+          PENDING.delete(id);
+          reject(new Error(NETWORK_DECLINED));
+        }
       });
       held.catch(() => {}); // see the note in wrapWrite
       return held;
@@ -267,10 +286,8 @@
     if (++tries > 40) clearInterval(timer);
   }, 50);
 
-  window.addEventListener('message', (event) => {
-    if (event.source !== window) return;
-    const msg = event.data;
-    if (!msg || msg.source !== 'webmcp-consent-ext-response') return;
+  function handleResponse(msg) {
+    if (!msg) return;
 
     if (msg.type === 'CHECK_WHITELIST') {
       const c = CHECKS.get(msg.id);
@@ -310,5 +327,16 @@
         })
         .catch((err) => p.reject(err));
     }
-  });
+  }
+
+  // Hand the bridge one end of a private channel. This runs synchronously at
+  // document_start, so it completes before the page has executed a single
+  // script and therefore before anything of the page's could be listening to
+  // steal the transferred port. From here on the page cannot see a proposal or
+  // fake a decision -- window.postMessage is not part of the protocol at all.
+  const channel = new MessageChannel();
+  port = channel.port1;
+  port.onmessage = (event) => handleResponse(event.data);
+  port.start();
+  window.postMessage({ __webmcpConsentPort: true }, '*', [channel.port2]);
 })();

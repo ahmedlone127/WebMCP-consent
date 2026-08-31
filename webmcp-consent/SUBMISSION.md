@@ -121,6 +121,19 @@ break it.
 `origin::toolName` in `chrome.storage.local`. The list is shown in the popup
 and revocable there. A cache you cannot see or undo is not consent.
 
+**A private approval channel.** The interceptor must run in the MAIN world to
+patch `registerTool`, which means page scripts share that world. The first
+version relayed proposals and decisions over `window.postMessage` — and that
+turned out to be forgeable. A page could listen for its own proposal, read the
+id, and post back an approval, self-approving every write with no human
+involved. We found it by asking the obvious question — if an agent drove the
+browser, could it approve its own actions? — and testing it rather than
+arguing about it. The two content scripts now exchange a private `MessagePort`
+at `document_start`, before any page script exists; every proposal and decision
+crosses that port, and `window.postMessage` carries nothing but the one-time
+handover. Re-running the exploit afterwards, the page could not even observe a
+proposal: the call stayed suspended, waiting for a human.
+
 **A card that shows facts, not a verdict.** The card carries the tool name, the
 real arguments, the site, and for a held request the method and full
 destination URL. There is deliberately no risk score. One was built — scored

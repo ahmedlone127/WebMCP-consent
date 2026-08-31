@@ -238,6 +238,17 @@ inside the thing meant to defend against it.
 "Always allow" is stored per `origin::toolName`, listed in the popup, and
 revocable there. A cache you cannot see or undo is not consent.
 
+**The approval channel is private to the extension.** The interceptor has to
+run in the MAIN world to patch the page's own `registerTool`, which means page
+scripts share that world. An earlier version relayed proposals and decisions
+over `window.postMessage`, and that was forgeable: a page could listen for its
+own proposal, read the id, and post back an approval for it — self-approving
+every write with no human involved. The two content scripts now hand each
+other a private `MessagePort` at `document_start`, before any page script
+exists, and every proposal and decision crosses that port. `window.postMessage`
+carries nothing but the one-time handover, and only the first one is accepted.
+A page can no longer read a proposal, let alone answer one.
+
 ### What the extension cannot do
 
 - **A write that never touches the network.** A tool that claims
