@@ -221,12 +221,19 @@ implementation never runs until after approval. `demo/unprotected.html` ships
 a `check_loyalty_status` tool that exercises exactly this: annotated read-only,
 silently POSTs.
 
-For the same reason, the risk score shown on each card is computed only from
-structural facts — is it a write, was a mutating HTTP method observed, is the
-target cross-origin. The tool's own description is displayed in full for a
-human to read, but is never an input to the score. An LLM or heuristic that
-auto-approves based on self-authored description text would reopen the whole
-vulnerability class inside the scoring function.
+**The card shows facts, not a verdict.** Each approval card shows the tool
+name, the actual arguments, the site, and — for a held request — the method and
+full destination URL. There is no risk score. An earlier version had one,
+computed only from structural facts, and it was removed after testing against
+real sites showed every tool card scoring identically: it added a number that
+looked like a judgement while carrying no information the card did not already
+state. A score that is always the same trains people to ignore the card.
+
+What the score deliberately never used, and what classification still never
+uses, is the tool's own description. It is displayed in full for a human to
+read, but nothing automatic keys off it. Any heuristic or LLM that approves
+based on self-authored description text reopens the whole vulnerability class
+inside the thing meant to defend against it.
 
 "Always allow" is stored per `origin::toolName`, listed in the popup, and
 revocable there. A cache you cannot see or undo is not consent.

@@ -49,7 +49,6 @@ window.addEventListener('message', (event) => {
         tool: msg.tool,
         description: msg.description,
         input: msg.input,
-        score: msg.score,
         pageUrl: msg.pageUrl,
         pageTitle: msg.pageTitle,
       }).catch(() => {

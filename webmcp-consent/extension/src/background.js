@@ -58,7 +58,6 @@ async function handlePropose(msg, sender) {
     tool: msg.tool,
     description: msg.description,
     input: msg.input,
-    score: msg.score,
     pageUrl: msg.pageUrl,
     pageTitle: msg.pageTitle,
     tabId: sender.tab ? sender.tab.id : null,

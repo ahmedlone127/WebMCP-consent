@@ -22,7 +22,6 @@ function renderPending(pending) {
     <div class="card">
       <div class="card-head">
         <span class="tool">${esc(p.tool)}</span>
-        <span class="score${p.score >= 5 ? ' hi' : ''}">risk ${esc(p.score)}</span>
       </div>
       <div class="site">${esc(p.pageTitle || '')} — ${esc(p.pageUrl || '')}</div>
       <div class="desc">${esc(p.description)}</div>

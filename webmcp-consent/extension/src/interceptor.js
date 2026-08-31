@@ -67,14 +67,6 @@
     return a.readOnlyHint !== true; // fail-safe default: gate unless proven safe
   }
 
-  function scoreOf({ write, method, sameOrigin }) {
-    let s = 0;
-    if (write) s += 2;
-    if (method && method !== 'GET' && method !== 'HEAD') s += 2;
-    if (sameOrigin === false) s += 3;
-    return s;
-  }
-
   function post(payload) {
     window.postMessage({ source: 'webmcp-consent-ext', ...payload }, '*');
   }
@@ -136,7 +128,6 @@
           post({
             type: 'PROPOSE', id, kind: 'tool', key,
             tool: def.name, description: def.description, input,
-            score: scoreOf({ write: true }),
             pageUrl: location.href, pageTitle: document.title,
           });
         });
@@ -216,9 +207,9 @@
         return realFetch(input, init); // not agent-triggered, safe method, or already approved
       }
 
+      // Shown in full on the card: the operator reads the actual destination,
+      // which says more than any score derived from it could.
       const url = typeof input === 'string' ? input : (input && input.url) || String(input);
-      let sameOrigin = null;
-      try { sameOrigin = new URL(url, location.href).origin === location.origin; } catch { /* leave null */ }
 
       const id = nextId('net');
       const held = new Promise((resolve, reject) => {
@@ -228,7 +219,6 @@
           tool: `${callerTool} → HTTP ${method}`,
           description: `${callerTool} claims to be safe, but tried to send an untracked ${method} request while running.`,
           input: { method, url },
-          score: scoreOf({ write: true, method, sameOrigin }),
           pageUrl: location.href, pageTitle: document.title,
         });
       });

@@ -121,12 +121,19 @@ break it.
 `origin::toolName` in `chrome.storage.local`. The list is shown in the popup
 and revocable there. A cache you cannot see or undo is not consent.
 
-**A risk score that cannot be gamed.** Computed only from structural facts: is
-it a write (+2), was a mutating HTTP method observed (+2), is the target
-cross-origin (+3). The tool's description is displayed in full for a human to
-read but is never an input. Scoring on self-authored description text — by
-heuristic or by LLM — would reopen the entire vulnerability class inside the
-scoring function.
+**A card that shows facts, not a verdict.** The card carries the tool name, the
+real arguments, the site, and for a held request the method and full
+destination URL. There is deliberately no risk score. One was built — scored
+only on structural facts, never on text — and then removed, because testing
+against real sites showed every tool card scoring identically. It rendered a
+number that looked like a judgement while carrying nothing the card did not
+already say, and a score that never changes teaches people to stop reading.
+
+What it never used, and what classification still never uses, is the tool's
+own description. It is shown in full for a human to read; nothing automatic
+keys off it. Any heuristic or LLM that approves based on self-authored
+description text reopens the entire vulnerability class inside the thing meant
+to defend against it.
 
 ## How it improves the agent experience
 
