@@ -63,8 +63,9 @@ $list.addEventListener('click', (e) => {
   const action = btn.dataset.action;
   const approved = action === 'approve' || action === 'approve-always';
   chrome.runtime.sendMessage(
-    { type: 'DECIDE', id, approved, alwaysAllow: action === 'approve-always',
-      reason: approved ? undefined : 'The operator declined this action.' },
+    // No reason string: the interceptor owns the wording the agent sees, and
+    // a generic one here only ends up duplicated inside it.
+    { type: 'DECIDE', id, approved, alwaysAllow: action === 'approve-always' },
     () => refreshPending()
   );
 });

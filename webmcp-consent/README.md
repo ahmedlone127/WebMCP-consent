@@ -28,6 +28,27 @@ mountApprovalQueue(consent, '#approvals');
 
 Zero dependencies. ESM. Works with plain JS, React, or any framework.
 
+## Two halves
+
+**The browser extension** (`extension/`) enforces this on sites you don't
+control. It replaces `registerTool` from the user's side at `document_start`,
+before the page's own scripts run, so a write is held for approval whether or
+not that site ever heard of this library. Nothing about the site changes; it
+registers tools normally and is calling a wrapper. Load it unpacked from
+`extension/`.
+
+**The library** (this npm package) is for developers building their own WebMCP
+surface who want the consent layer designed in rather than patched on from
+outside: staged proposals with real diffs, role scoping, guards that re-run at
+approval time, an audit trail.
+
+They answer different questions. The library asks what a careful site should
+ship. The extension asks what protects a user when the site wasn't careful —
+which is most sites, because almost none of them have heard of any of this yet.
+
+Same rule underneath both: reads run freely, writes need a human hand on a
+control the agent cannot reach.
+
 ## Why
 
 WebMCP tools run inside the user's authenticated session. That is the whole
@@ -160,7 +181,7 @@ Every staged tool gains an optional `idempotency_key` input. A retrying agent
 reusing the key gets an error rather than a second proposal, and a key that
 already committed returns the prior result.
 
-## Trust boundary
+## Trust boundary — the library
 
 What the agent can do unilaterally: every `registerRead` tool, plus
 `get_action_history`.
@@ -179,15 +200,84 @@ What this does not protect against: a compromised page, a malicious first-party
 developer, missing server-side authorization, or a human who approves without
 reading. It is a consent layer, not a sandbox.
 
+## Trust boundary — the extension
+
+The extension protects a user on a site that never opted in, so it cannot
+assume anything the site tells it is true. Two things follow from that.
+
+**Classification is fail-safe, not clever.** A tool is treated as a write
+unless it explicitly carries `readOnlyHint: true`. Unannotated means gated.
+The classifier deliberately does not read the tool's name or description to
+guess intent — that would be defeated by a site simply not naming things
+suspiciously, and it would make attacker-authored text load-bearing in a
+security decision, which is the exact thing this project exists to prevent.
+
+**A site that lies in its annotations is caught at the network layer.**
+`window.fetch` is patched too. A non-GET/HEAD request issued while a tool's
+`execute` is on the call stack, and that hasn't already been approved, is held
+the same way a write is. By construction this can only ever fire for a tool
+that claimed `readOnlyHint: true` and lied, because a genuine write's real
+implementation never runs until after approval. `demo/unprotected.html` ships
+a `check_loyalty_status` tool that exercises exactly this: annotated read-only,
+silently POSTs.
+
+For the same reason, the risk score shown on each card is computed only from
+structural facts — is it a write, was a mutating HTTP method observed, is the
+target cross-origin. The tool's own description is displayed in full for a
+human to read, but is never an input to the score. An LLM or heuristic that
+auto-approves based on self-authored description text would reopen the whole
+vulnerability class inside the scoring function.
+
+"Always allow" is stored per `origin::toolName`, listed in the popup, and
+revocable there. A cache you cannot see or undo is not consent.
+
+### What the extension cannot do
+
+- **A write that never touches the network.** A tool that claims
+  `readOnlyHint: true` and mutates only in-page state — a JS object, the DOM,
+  `localStorage` — is invisible to both layers. Nothing observes it. Both demo
+  pages mutate an in-memory array, and their `issue_refund` is caught only
+  because it is unannotated, not because the mutation was detected.
+- **Writes that don't go through `fetch`.** `XMLHttpRequest`,
+  `navigator.sendBeacon`, WebSockets, form submission and image beacons are
+  not patched. Only `fetch` is.
+- **A page that installs its own `window.fetch` after load.** The patch is
+  re-applied for about two seconds after `document_start`; a page that replaces
+  `fetch` outright after that window keeps the tool-level gate but loses the
+  network-level catch. A page that *wraps* `fetch` is fine — it wraps ours.
+- **Hide that it is there.** A page can read `registerTool.toString()` and see
+  it has been wrapped, and could behave differently when it does.
+- **Protect a browser it cannot run in.** ChatGPT's in-app browser is a closed
+  platform that does not accept third-party extensions. This runs in Chrome
+  with WebMCP enabled.
+- **Save a human who approves without reading.** Nothing here can.
+
+The honest summary: this raises the cost of a successful injection from "the
+agent was convinced" to "the agent was convinced *and* a human clicked
+approve on a card describing the action." That is a real, large gap. It is
+not a proof.
+
 ## Demo
 
 `demo/index.html` is a small operations console built on the library. It seeds
 a support ticket containing a prompt injection. Ask an agent to triage the
 inbox and watch the refund get staged instead of issued.
 
+`demo/unprotected.html` is the opposite: a plain page with no consent layer of
+any kind, which is what the extension is for. Its `issue_refund` executes
+immediately and is caught because it carries no `readOnlyHint`. Its
+`check_loyalty_status` claims `readOnlyHint: true` and is caught anyway, at the
+network layer, when it tries to POST.
+
 ```
 npx serve .
 ```
+
+To run the extension: `chrome://extensions` → Developer mode → **Load
+unpacked** → select `extension/`. Writes are then held on any site, including
+`demo/unprotected.html`, and the toolbar badge shows how many are waiting.
+Note that `getTools()` returns a Promise, so driving tools from the console
+means `(await mc.getTools()).find(...)`, not `mc.getTools().find(...)`.
 
 WebMCP needs a secure context, so `file://` will not work. Open in Chrome 149+
 with `chrome://flags/#enable-webmcp-testing`, or in the ChatGPT desktop app's

@@ -1,6 +1,6 @@
 {
   "name": "webmcp-consent",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A consent layer for WebMCP tools. Reads run freely, writes stage a proposal a human approves in the page.",
   "type": "module",
   "main": "./src/index.js",
@@ -13,6 +13,9 @@
   "sideEffects": false,
   "keywords": ["webmcp", "mcp", "agent", "ai", "consent", "human-in-the-loop", "prompt-injection", "tools"],
   "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/ahmedlone127/WebMCP-consent.git" },
+  "homepage": "https://github.com/ahmedlone127/WebMCP-consent#readme",
+  "bugs": { "url": "https://github.com/ahmedlone127/WebMCP-consent/issues" },
   "peerDependencies": { "react": ">=18" },
   "peerDependenciesMeta": { "react": { "optional": true } },
   "engines": { "node": ">=18" },

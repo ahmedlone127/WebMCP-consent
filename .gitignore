@@ -3,3 +3,6 @@ node_modules/
 *.log
 .DS_Store
 *.stackdump
+
+# Session transcripts / handoff dumps -- may contain pasted credentials
+*-webmcp-challenge-project-handoff.txt
