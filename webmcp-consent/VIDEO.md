@@ -1,120 +1,113 @@
 # Demo video — shot list
 
-Target ~3 minutes. The spine is Cloudflare's coffee shop, because it is a real
-third-party WebMCP site we did not build. The cart number is the proof, so keep
-it on screen the whole time.
+Built against Devpost's stated guidance: under 3 minutes (this runs ~80s),
+public on YouTube, audio narration, the project working inside the first 15
+seconds, and the agent using the tools as the centerpiece. No intro, no title
+card, no setup, no live typing.
+
+Spine is Cloudflare's coffee shop, because it is a real third-party WebMCP site
+we did not build. The cart number is the proof — keep it in frame throughout.
 
 ## Before recording
 
 - Fresh Chrome profile, WebMCP flag on, extension loaded, popup icon pinned.
-- Popup → **Always Allowed** → revoke everything. A stale whitelist entry means
-  a write silently runs and the whole demo dies on camera.
-- Reload `webmcp-coffee.jilles.fyi` so the cart reads `CART · 0 · Empty`.
-- Have `demo/unprotected.html` open in a second tab for Act 5.
-- Close the DevTools console if you are driving tools from it, or at least keep
-  it out of frame during the beats where the cart is the subject.
+- Popup → **Always Allowed** → revoke everything. A stale entry means the write
+  runs silently and there is no demo.
+- Coffee shop cart cleared to `CART · 0` (it persists — remove items by hand).
+- Claude session already open, browser tool connected, **prompt already pasted
+  and ready to send**. Judges are told not to watch setup; do not film it.
+- Record in short clips so one bad beat can be redone alone.
 
-## Act 1 — this is not my site (0:00–0:25)
+## 0:00–0:14 — COLD OPEN: it works, immediately
 
-Show `webmcp-coffee.jilles.fyi`.
+No intro. First frame is the agent already working.
 
-> "This is Cloudflare's WebMCP demo storefront. I didn't build it. It has never
-> heard of my project, and I've never touched its code."
+Screen: Claude session on the left, coffee shop on the right, cart visible at
+`CART · 0`.
 
-Show the extension icon in the toolbar.
+Hit send on the prompt. Claude reads the shop and calls `add_to_cart`.
 
-> "This is my extension. It doesn't know anything about this site either."
+**Then it stops.** Cart stays at `0`. Badge shows `1`.
 
-That is the entire pitch. Say it in the first twenty seconds.
+> "An agent just tried to add something to a cart. It got stopped — and it's
+> still waiting."
 
-## Act 2 — reads run free (0:25–0:45)
+On-screen text: **`Agent call suspended — waiting for a human`**
 
-Call `filter_coffees_by_roast`. The collection filters immediately. No prompt,
-no badge.
+Let the cart sit at `0` for a beat. The pause is the product.
 
-> "Reads aren't gated. A consent layer that interrupts you for reads is one you
-> switch off by Tuesday."
+## 0:14–0:28 — why that matters
 
-## Act 3 — the write is held (0:45–1:35)
+> "This is Cloudflare's WebMCP storefront. I didn't build it and it's never
+> heard of my extension. It exposed its tools normally — my extension replaced
+> registerTool before the page's own scripts ran, so every write goes through
+> me first."
 
-Cart is visible and reads `0 · Empty`. Call `add_to_cart`, 2 bags of Guji
-Shakiso.
+On-screen text: **`No SDK. No code change. Nothing for the site to adopt.`**
 
-Nothing happens. Let the silence sit for a beat — the cart still says `0`.
-The toolbar badge shows `1`.
+## 0:28–0:42 — the human decision
 
-> "The agent's call hasn't failed. It's suspended, mid-execution, waiting."
+Open the popup. Card shows `add_to_cart`, `product_id: ethiopia-guji`,
+`quantity: 2`, and the site.
 
-Open the popup. The card shows the tool name, the real arguments
-(`product_id: ethiopia-guji`, `quantity: 2`), and the site.
+> "Not a yes/no on a tool name — the actual arguments."
 
-> "Not a yes/no about an opaque tool name. The actual thing that will happen."
+Click **Approve**. Cart jumps to `CART · 2 · $44.00`. Claude picks straight back
+up and reports the real result.
 
-**Click Decline.** Cart still `0`. Show what the agent received:
+> "Same call. The only difference is that a human clicked something the agent
+> can't reach."
 
-> `DECLINED BY OPERATOR. A human reviewed this action… Nothing was changed…
-> Do not retry.`
+## 0:42–1:05 — the second feature: catching a site that lies
 
-> "The agent gets a straight answer, not a mystery error it'll retry five times."
+Cut to `demo/unprotected.html`.
 
-## Act 4 — approve (1:35–2:00)
+> "Classification trusts the site's own readOnlyHint. So what about a site that
+> lies?"
 
-Same call again. This time **Approve**.
+Call `check_loyalty_status` — annotated `readOnlyHint: true`. It is *not* held
+at the tool layer, correctly.
 
-Cart becomes `CART · 2 · Guji Shakiso · $44.00`.
+Then the card appears: **`check_loyalty_status → HTTP POST`**
 
-> "Identical call. The only difference is that a human clicked a button the
-> agent cannot reach."
+> "It declared itself read-only. While running, it tried to POST to an
+> enrolment endpoint. I patch fetch too, so the request is held before it's
+> sent."
 
-## Act 5 — the site that lies (2:00–2:40)
+Decline. Show the Resource Timing check returning `[]`.
 
-Switch to `demo/unprotected.html`.
+On-screen text: **`0 requests reached the network`**
 
-> "Classification trusts the site's own `readOnlyHint`. So what happens when a
-> site lies?"
+## 1:05–1:20 — close
 
-Show `check_loyalty_status` — annotated `readOnlyHint: true`. Call it.
+Popup → **Always Allowed** → an entry → **Require approval again**.
 
-It is *not* held at the tool layer. Correct: it claimed read-only.
+> "Reads run free — about five milliseconds, no prompt. Writes stop. The allow
+> list is visible and revocable, because a cache you can't see isn't consent.
+> Injected text can reach the agent. It can't reach this button."
 
-Then the card appears: **`check_loyalty_status → HTTP POST`**.
+## Optional beat, only if under time
 
-> "It said it was read-only. While running, it tried to POST to an enrolment
-> endpoint."
-
-Decline, then show the Resource Timing check returning `[]`.
-
-> "Zero requests. It never left the browser."
-
-Note on camera: the tool still returns `Loyalty status: Gold`, because the page
-swallows its own error. Say so — the site lying about the outcome as well as
-the annotation is a better beat than a clean failure.
-
-## Notifications
-
-A held call also raises a desktop notification naming the tool and its
-arguments. It has no buttons — Chrome on Windows renders them but reports no
-clicks back to the extension, so they were removed rather than shipped dead.
-If you show it, show it as the alert ("something is waiting"), then open the
-popup to decide.
-
-## Act 6 — close (2:40–3:00)
-
-Popup → **Always Allowed** → show an entry → **Require approval again**.
-
-> "Reads free. Writes held. The allow list visible and revocable — because a
-> cache you can't see or undo isn't consent."
-
-Close on the honest limit:
-
-> "It can't see a write that never touches the network. That's in the README,
-> along with everything else it can't do."
+Desktop notification naming the tool and arguments. It has no buttons — Chrome
+on Windows renders them but reports no clicks back to the extension, so they
+were removed rather than shipped dead. Show it as the alert, then open the
+popup.
 
 ## Do not
 
+- Do not film setup, sign-in, the extension being installed, or loading.
+- Do not type live. The prompt is pre-pasted; hit send.
 - Do not present a scripted agent run as spontaneous. If a model was told to
-  take the injection bait, say so on camera. In a security submission an
-  unlabelled staged failure is the thing that unravels under a judge's poke.
-- Do not claim "works on every site." It works on WebMCP sites; Vercel's
-  storefront registers no WebMCP tools at all and the extension correctly does
-  nothing there.
+  take the injection bait, say so on camera.
+- Do not claim "works on every site." It works on sites exposing WebMCP tools;
+  Vercel's storefront registers none and the extension correctly does nothing.
+- Do not save the good material for the end. Judges are not required to watch
+  past 3 minutes and may stop far sooner.
+
+## How this maps to the four criteria
+
+- **WebMCP Leverage** — patching `registerTool` at `document_start` in the MAIN
+  world, plus a `fetch` layer catching tools that lie in their annotations.
+- **Execution** — driven on two real third-party sites, not a toy page.
+- **Potential Impact** — 0:00–0:14 is the problem and the fix in one shot.
+- **Creativity** — protection that needs no adoption by the site at all.
