@@ -5,15 +5,15 @@ public on YouTube, audio narration, the project working inside the first 15
 seconds, and the agent using the tools as the centerpiece. No intro, no title
 card, no setup, no live typing.
 
-Spine is Cloudflare's coffee shop, because it is a real third-party WebMCP site
-we did not build. The cart number is the proof — keep it in frame throughout.
+Spine is Cloudflare's coffee shop, because it is a real WebMCP site we did not
+build. The cart number is the proof, so keep it in frame throughout.
 
 ## Before recording
 
 - Fresh Chrome profile, WebMCP flag on, extension loaded, popup icon pinned.
 - Popup → **Always Allowed** → revoke everything. A stale entry means the write
   runs silently and there is no demo.
-- Coffee shop cart cleared to `CART · 0` (it persists — remove items by hand).
+- Coffee shop cart cleared to `CART · 0`. It persists, so remove items by hand.
 - Claude session already open, browser tool connected, **prompt already pasted
   and ready to send**. Judges are told not to watch setup; do not film it.
 - Record in short clips so one bad beat can be redone alone.
@@ -29,19 +29,19 @@ Hit send on the prompt. Claude reads the shop and calls `add_to_cart`.
 
 **Then it stops.** Cart stays at `0`. Badge shows `1`.
 
-> "An agent just tried to add something to a cart. It got stopped — and it's
-> still waiting."
+> "An agent just tried to add something to a cart. It got stopped, and it's
+> still sitting there waiting."
 
-On-screen text: **`Agent call suspended — waiting for a human`**
+On-screen text: **`Agent call suspended, waiting for a human`**
 
-Let the cart sit at `0` for a beat. The pause is the product.
+Let the cart sit at `0` for a beat. The pause is the whole thing.
 
 ## 0:14–0:28 — why that matters
 
 > "This is Cloudflare's WebMCP storefront. I didn't build it and it's never
-> heard of my extension. It exposed its tools normally — my extension replaced
-> registerTool before the page's own scripts ran, so every write goes through
-> me first."
+> heard of my extension. It registered its tools the normal way. My extension
+> replaced registerTool before the page's own scripts ran, so every write goes
+> through me first."
 
 On-screen text: **`No SDK. No code change. Nothing for the site to adopt.`**
 
@@ -50,7 +50,7 @@ On-screen text: **`No SDK. No code change. Nothing for the site to adopt.`**
 Open the popup. Card shows `add_to_cart`, `product_id: ethiopia-guji`,
 `quantity: 2`, and the site.
 
-> "Not a yes/no on a tool name — the actual arguments."
+> "Not a yes or no on a tool name. The actual arguments."
 
 Click **Approve**. Cart jumps to `CART · 2 · $44.00`. Claude picks straight back
 up and reports the real result.
@@ -88,9 +88,9 @@ Popup → **Always Allowed** → an entry → **Require approval again**.
 
 ## Optional beat, only if under time
 
-Desktop notification naming the tool and arguments. It has no buttons — Chrome
-on Windows renders them but reports no clicks back to the extension, so they
-were removed rather than shipped dead. Show it as the alert, then open the
+Desktop notification naming the tool and arguments. It has no buttons. Chrome on
+Windows renders them but sends no clicks back to the extension, so they were
+removed rather than shipped dead. Show it as the alert, then open the
 popup.
 
 ## Do not
@@ -106,8 +106,8 @@ popup.
 
 ## How this maps to the four criteria
 
-- **WebMCP Leverage** — patching `registerTool` at `document_start` in the MAIN
-  world, plus a `fetch` layer catching tools that lie in their annotations.
-- **Execution** — driven on two real third-party sites, not a toy page.
-- **Potential Impact** — 0:00–0:14 is the problem and the fix in one shot.
-- **Creativity** — protection that needs no adoption by the site at all.
+- **WebMCP Leverage**: patching `registerTool` at `document_start` in the MAIN
+  world, plus a `fetch` layer that catches tools lying in their annotations.
+- **Execution**: driven on two real third-party sites, not a toy page.
+- **Potential Impact**: 0:00-0:14 shows the problem and the fix in one shot.
+- **Creativity**: protection that needs no adoption by the site at all.

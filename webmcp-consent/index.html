@@ -66,8 +66,8 @@
   <h1>Injected text can reach the agent.<br>It cannot reach the button.</h1>
   <p class="lede">
     WebMCP lets an agent act inside a tab you are already signed into. That is the
-    point of the standard, and also the risk. This holds every write for a human
-    click &mdash; on any site, whether or not that site ever adopted anything.
+    point of the standard, and also the risk. This holds every write until you
+    approve it, on any site, whether or not that site ever adopted anything.
     Reads run freely.
   </p>
 
@@ -100,10 +100,10 @@
       <span class="tag">extension</span>
       <h3 style="margin-top:8px">Anywhere Goods</h3>
       <p>
-        A deliberately plain storefront with no consent layer of its own &mdash; what
-        most of the web looks like. Its <code>issue_refund</code> carries no annotation
-        and gets held anyway. Its <code>check_loyalty_status</code> claims to be
-        read-only and quietly POSTs; that gets caught at the network layer.
+        A plain storefront with no consent layer of its own, which is what most of
+        the web looks like. Its <code>issue_refund</code> carries no annotation and
+        gets held anyway. Its <code>check_loyalty_status</code> claims to be read-only
+        and quietly POSTs, and that gets caught at the network layer.
       </p>
       <a class="btn alt" href="/demo/unprotected.html">Open Anywhere Goods</a>
     </div>
@@ -111,10 +111,9 @@
       <span class="tag">library</span>
       <h3 style="margin-top:8px">Ledger</h3>
       <p>
-        A support console built <i>on</i> the library, for developers who want the
-        consent layer designed in rather than patched on from outside: staged
-        proposals with real diffs, role scoping, an audit trail. Its inbox contains
-        a planted prompt injection.
+        A support console built on the library, for developers who want the consent
+        layer built into a site they own: staged proposals with real diffs, role
+        scoping, an audit trail. Its inbox contains a planted prompt injection.
       </p>
       <a class="btn alt" href="/demo/index.html">Open Ledger</a>
     </div>
@@ -124,19 +123,19 @@
   <section>
     <p>
       <code>registerTool</code> is a property holding a function. A content script runs
-      at <code>document_start</code> in the MAIN world &mdash; before any of the page's
-      own scripts &mdash; and replaces it with a wrapper. The site registers its tools
-      completely normally and is calling ours. It never knows.
+      at <code>document_start</code> in the MAIN world, before any of the page's own
+      scripts, and replaces it with a wrapper. The site registers its tools the normal
+      way and is calling ours. It never finds out.
     </p>
     <p>
       Classification is one line: no <code>readOnlyHint</code> means it is a write.
-      Unannotated is treated as dangerous. It deliberately never reads the tool's name
-      or description to guess intent &mdash; that text is attacker-reachable, and making
-      it load-bearing in a security decision is the exact thing this defends against.
+      Unannotated is treated as dangerous. It never reads the tool's name or
+      description to guess intent. That text is attacker-reachable, and putting it in
+      charge of a security decision is the problem this exists to solve.
     </p>
     <p style="margin-bottom:0">
       <code>fetch</code> is patched too. A tool that claims <code>readOnlyHint: true</code>
-      but fires a POST while running gets held the same way, so a site cannot simply lie
+      but fires a POST while running gets held the same way, so a site cannot just lie
       in its annotations.
     </p>
   </section>
@@ -144,8 +143,8 @@
   <h2>What it cannot do</h2>
   <section>
     <ul class="plain">
-      <li>A write that never touches the network &mdash; one that mutates only in-page
-        state &mdash; is invisible to both layers.</li>
+      <li>A write that never touches the network, meaning one that only mutates
+        in-page state, is invisible to both layers.</li>
       <li>Only <code>fetch</code> is patched, not <code>XMLHttpRequest</code>,
         <code>sendBeacon</code>, or WebSockets.</li>
       <li>ChatGPT's in-app browser does not accept third-party extensions, so this runs
@@ -153,9 +152,9 @@
       <li>Nothing here saves someone who approves without reading.</li>
     </ul>
     <p class="note" style="margin:11px 0 0">
-      It raises the cost of a successful injection from &ldquo;the agent was
-      convinced&rdquo; to &ldquo;the agent was convinced <i>and</i> a human approved a
-      card describing the action.&rdquo; That is a real, large gap. It is not a proof.
+      What it does is raise the cost of a successful injection from &ldquo;the agent
+      was convinced&rdquo; to &ldquo;the agent was convinced and a human approved a card
+      describing the action.&rdquo; That is a big gap, and it is not a proof.
     </p>
   </section>
 

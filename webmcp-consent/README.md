@@ -1,9 +1,129 @@
 # webmcp-consent
 
-A consent layer for [WebMCP](https://github.com/webmachinelearning/webmcp) tools.
+A consent layer for [WebMCP](https://github.com/webmachinelearning/webmcp).
 
-Reads run freely. Writes never execute. They stage a proposal that a human
-approves with a button in the page, out of band from the agent's own channel.
+Reads run freely. Writes stop and wait for a human to approve them, on a
+control the agent has no way to reach.
+
+There are two pieces. A **Chrome extension** that enforces this on any WebMCP
+site, including sites that never adopted anything. And an **npm library** for
+developers who want the same guarantee built into a site they own.
+
+---
+
+## The extension
+
+`registerTool` is a property holding a function. A content script runs at
+`document_start` in the MAIN world, which Chrome guarantees happens before any
+page script, and replaces it with a wrapper. The site registers its tools the
+normal way and is calling ours. It never finds out.
+
+MAIN world is what makes this work. The default isolated world would hand the
+script its own private copy of the context, and it would patch something the
+page never reads.
+
+### Install
+
+Download [the zip](https://webmcp-consent-7d22c356.netlify.app/webmcp-consent-extension.zip),
+unzip it, then open `chrome://extensions`, turn on Developer mode, and click
+**Load unpacked**. Or load `extension/` straight from a clone.
+
+You also need WebMCP itself: `chrome://flags/#enable-webmcp-testing`, then
+relaunch.
+
+### How it decides
+
+One line:
+
+```js
+const isWrite = (def) => def.annotations?.readOnlyHint !== true;
+```
+
+No annotation means gated. `readOnlyHint` is a real MCP annotation, not
+something invented for this.
+
+It never reads the tool's name or description to guess intent. A site could
+defeat that by not naming things suspiciously, and it would put
+attacker-authored text in charge of a security decision, which is the problem
+this exists to solve. The description is shown in full on the approval card for
+a person to read. Nothing automatic keys off it.
+
+### When a site lies
+
+`window.fetch` is patched too. If a non-GET/HEAD request goes out while a
+tool's `execute` is running, and that call wasn't already approved, it gets held
+the same way a write does.
+
+This can only ever fire for a tool that claimed `readOnlyHint: true` and lied,
+because a real write's implementation doesn't run until after approval.
+`demo/unprotected.html` has a `check_loyalty_status` tool built to prove it:
+annotated read-only, quietly POSTs.
+
+### The approval card
+
+It shows the tool name, the real arguments, the site, and for a held request
+the method and full destination URL. No score, no verdict. An earlier version
+had a risk score and it was removed: every tool card scored the same, so it was
+a number that looked like judgement while saying nothing.
+
+"Always allow" is stored per `origin::toolName`, listed in the popup, and
+revocable there. A cache you can't see or undo isn't consent.
+
+A held call also raises a desktop notification naming the tool, the arguments
+and the site. It has no Approve/Decline buttons. Chrome on Windows hands
+notifications to the system notification centre, which renders buttons but
+sends no interaction back to the extension. Tested with the service worker
+awake, a click produced no `onButtonClicked`, no `onClicked`, not even
+`onClosed`. A button that does nothing is worse than no button, so the
+notification tells you something is waiting and the popup is where you answer.
+The listeners are still registered, so a platform that does report clicks gets
+one-click approval for free.
+
+### The approval channel
+
+The interceptor lives in the MAIN world, so page scripts share it. An early
+version relayed proposals over `window.postMessage`, which turned out to be
+forgeable: a page could watch for its own proposal, read the id, and post back
+an approval. It could approve its own writes.
+
+The two content scripts now hand each other a private `MessagePort` at
+`document_start`, before any page script exists. Every proposal and decision
+crosses that port. `window.postMessage` carries the one-time handover and
+nothing else, and only the first one is accepted. A page can't read a proposal
+now, let alone answer one.
+
+### What it can't do
+
+- **A write that never touches the network.** A tool claiming `readOnlyHint:
+  true` that only mutates in-page state is invisible to both layers. Both demo
+  pages mutate an in-memory array, and their `issue_refund` is caught only
+  because it carries no annotation.
+- **Writes that skip `fetch`.** `XMLHttpRequest`, `sendBeacon`, WebSockets,
+  form submission and image beacons aren't patched.
+- **A page that replaces `window.fetch` after load.** The patch is reapplied
+  for about two seconds after `document_start`. After that, a page that
+  replaces `fetch` outright keeps the tool-level gate but loses the network
+  catch. Wrapping `fetch` is fine; it wraps ours.
+- **Stay hidden.** A page can call `registerTool.toString()` and see the
+  wrapper.
+- **Run where extensions can't.** ChatGPT's in-app browser doesn't take
+  third-party extensions. This is Chrome with WebMCP enabled.
+- **Help someone who approves without reading.**
+
+What it does is raise the cost of a successful injection from "the agent was
+convinced" to "the agent was convinced and a human approved a card describing
+the action." That's a big gap, and it isn't a proof.
+
+---
+
+## The library
+
+```
+npm install webmcp-consent
+```
+
+Zero dependencies, ESM, no build step. Works with plain JS, React, or anything
+else.
 
 ```js
 import { createConsentLayer, mountApprovalQueue } from 'webmcp-consent';
@@ -26,52 +146,7 @@ consent.registerStaged({
 mountApprovalQueue(consent, '#approvals');
 ```
 
-Zero dependencies. ESM. Works with plain JS, React, or any framework.
-
-## Two halves
-
-**The browser extension** (`extension/`) enforces this on sites you don't
-control. It replaces `registerTool` from the user's side at `document_start`,
-before the page's own scripts run, so a write is held for approval whether or
-not that site ever heard of this library. Nothing about the site changes; it
-registers tools normally and is calling a wrapper. Load it unpacked from
-`extension/`.
-
-**The library** (this npm package) is for developers building their own WebMCP
-surface who want the consent layer designed in rather than patched on from
-outside: staged proposals with real diffs, role scoping, guards that re-run at
-approval time, an audit trail.
-
-They answer different questions. The library asks what a careful site should
-ship. The extension asks what protects a user when the site wasn't careful —
-which is most sites, because almost none of them have heard of any of this yet.
-
-Same rule underneath both: reads run freely, writes need a human hand on a
-control the agent cannot reach.
-
-## Why
-
-WebMCP tools run inside the user's authenticated session. That is the whole
-point of the standard, and it is also the risk: a tool that calls
-`api.refund()` inside `execute` will issue that refund the moment an agent
-decides to call it, including when the agent decided that because a customer
-pasted `SYSTEM OVERRIDE` into a support ticket.
-
-Prompt injection is unsolved. It is not going to be solved by better tool
-descriptions. What can be done today is to make the irreversible actions
-require a human hand on a control the agent cannot reach.
-
-That is a few hundred lines of proposal queue, diff rendering, held promises,
-role scoping, and audit trail, per site, and most teams will not write it.
-This is that layer as one import.
-
-## Install
-
-```
-npm install webmcp-consent
-```
-
-Or without a build step:
+Without a build step:
 
 ```html
 <script type="module">
@@ -79,87 +154,80 @@ Or without a build step:
 </script>
 ```
 
-## The two kinds of tool
+### Two kinds of tool
 
-**`registerRead`** — executes immediately, no approval. Marked `readOnlyHint`
-so agents know it is safe to call freely. Investigation should never be gated;
-gating it makes the agent feel useless without making anything safer.
+`registerRead` runs immediately, no approval, marked `readOnlyHint` so agents
+know they can call it freely. Gating investigation makes an agent feel useless
+without making anything safer.
 
 ```js
 consent.registerRead({
   name: 'get_customer_messages',
   description: 'Read the support inbox.',
-  untrusted: true,        // adds untrustedContentHint and delimits the output
+  untrusted: true,
   execute: async () => inbox.map(m => `From ${m.from}: ${m.body}`).join('\n'),
 });
 ```
 
 `untrusted: true` wraps the return value in `<untrusted-content>` tags and sets
-`untrustedContentHint`. Delimiting is not a guarantee. It is the cheapest
-signal available and it costs nothing.
+`untrustedContentHint`. Delimiting isn't a guarantee. It's the cheapest signal
+available and it costs nothing.
 
-**`registerStaged`** — never executes. Splits your old `execute` into two:
+`registerStaged` never runs directly. It splits `execute` in two:
 
-- `preview(input, ctx)` builds the reviewable artifact: summary, diff, blast
-  radius, reversibility.
-- `commit(input, ctx)` is the real side effect, and runs only after approval.
+- `preview(input, ctx)` builds what a person reviews: summary, diff,
+  blast radius, reversibility.
+- `commit(input, ctx)` is the real side effect, and only runs after approval.
 
-The agent's call returns a Promise that stays unresolved until a human acts.
-Approve resolves it. Decline rejects it.
+The agent's call returns a Promise that stays unresolved until someone acts.
+Approve resolves it, decline rejects it.
 
-## Enforcement runs twice
+### Guards run twice
 
-`guard` fires at propose time and again at approve time. If the user's role
-changed while a proposal sat in the queue, the second check catches it.
+`guard` fires when the proposal is made and again when it's approved. If
+someone's role changed while the proposal sat in the queue, the second check
+catches it.
 
-A limit stated only in a tool description is documentation, not a control.
-Enforce in `guard`, and enforce again server-side. This library covers the
-client half; it cannot cover the half that isn't in the browser.
+A limit stated only in a tool description is documentation, not a control. Put
+it in `guard`, and put it server-side too. This library covers the client half
+and can't cover the half that isn't in the browser.
 
-## Role scoping is registration, not filtering
+### Roles scope registration, not visibility
 
-Tools carrying a `roles` array are not registered at all for other roles. A
-support rep's agent does not see `propose_price_change` refused. It does not
-see that the tool exists.
+A tool with a `roles` array isn't registered at all for other roles. A support
+rep's agent doesn't see `propose_price_change` refused. It doesn't see that it
+exists.
 
 ```js
 consent.setRole('manager');   // tears down and re-registers the whole surface
 ```
 
-Because WebMCP unregisters via `AbortController`, the tool surface is a pure
-function of current state, and `setRole` is just a resync.
+WebMCP unregisters through `AbortController`, so the tool surface is a pure
+function of current state and `setRole` is just a resync.
 
-## API
+### API
 
-### `createConsentLayer(options)`
+`createConsentLayer(options)`
 
 | option | default | meaning |
 |---|---|---|
 | `role` | `'default'` | Current acting role. |
-| `timeoutMs` | `300000` | Auto-expire pending proposals after 5 minutes so an agent is never hung forever on an absent human. `0` disables expiry. |
+| `timeoutMs` | `300000` | Expire pending proposals after 5 minutes so an agent isn't hung forever on an absent human. `0` disables. |
 | `auditLimit` | `200` | Audit log ring buffer size. |
 | `exposeHistory` | `true` | Register `get_action_history` for the agent. |
 
-### Instance
+Instance: `registerRead(def)`, `registerStaged(def)`, `setRole(role)`,
+`approve(id)`, `decline(id, reason?)`, `pending`, `audit`, `toolNames`,
+`subscribe(fn)`, `destroy()`, and `available`, which is false when WebMCP isn't
+there so you can degrade gracefully.
 
-- `registerRead(def)` / `registerStaged(def)`
-- `setRole(role)`
-- `approve(id)` / `decline(id, reason?)`
-- `pending` / `audit` / `toolNames`
-- `subscribe(fn)` → unsubscribe
-- `destroy()`
-- `available` — false when WebMCP is absent, so you can degrade gracefully
+UI: `mountApprovalQueue(layer, target, { emptyText })` and
+`mountAuditLog(layer, target, { limit })`, both returning an unmount function.
+Themeable with `--wmc-ink`, `--wmc-line`, `--wmc-muted`, `--wmc-surface`,
+`--wmc-accent`, `--wmc-accent-bg`, `--wmc-ok`, `--wmc-danger`, `--wmc-font`,
+`--wmc-mono`.
 
-### UI
-
-- `mountApprovalQueue(layer, target, { emptyText })` → unmount
-- `mountAuditLog(layer, target, { limit })` → unmount
-
-Themeable with CSS variables: `--wmc-ink`, `--wmc-line`, `--wmc-muted`,
-`--wmc-surface`, `--wmc-accent`, `--wmc-accent-bg`, `--wmc-ok`, `--wmc-danger`,
-`--wmc-font`, `--wmc-mono`.
-
-### React
+React:
 
 ```js
 import { useConsentLayer } from 'webmcp-consent/react';
@@ -167,156 +235,51 @@ import { useConsentLayer } from 'webmcp-consent/react';
 const { layer, pending, audit, role, tools } = useConsentLayer({ role: user.role });
 ```
 
-Tools unregister on unmount, so the agent's capabilities track what is
-actually on screen.
+Tools unregister on unmount, so an agent's capabilities track what's actually
+on screen.
 
-## Tools the library registers for you
+Every staged tool gains an optional `idempotency_key` input. An agent retrying
+with the same key gets an error instead of a second proposal, and a key that
+already committed returns the earlier result.
 
-- `get_action_history` — the audit log, actor-tagged, so an agent can check
-  what it already did instead of duplicating work.
+### Trust boundary
 
-## Idempotency
+The agent can call any `registerRead` tool plus `get_action_history` on its
+own. Every `registerStaged` tool needs a human, with no exceptions. Even a
+proposal with no `guard` is checked against the tool's `roles` array at
+approval time, so a role change can't be used to approve something that role
+was never allowed to see.
 
-Every staged tool gains an optional `idempotency_key` input. A retrying agent
-reusing the key gets an error rather than a second proposal, and a key that
-already committed returns the prior result.
+The approve and decline buttons are DOM events in the page. An agent with only
+WebMCP tool access has no route to them. If your agent surface also has DOM
+automation, this boundary weakens and you should say so.
 
-## Trust boundary — the library
+It doesn't protect against a compromised page, a malicious first-party
+developer, missing server-side authorization, or someone approving without
+reading. It's a consent layer, not a sandbox.
 
-What the agent can do unilaterally: every `registerRead` tool, plus
-`get_action_history`.
+---
 
-What requires a human: every `registerStaged` tool, without exception. Even if
-a proposal has no `guard`, approval is still checked against the tool's
-`roles` array — a role change while a proposal sits in the queue cannot be
-used to approve a tool that role was never allowed to see.
+## Demos
 
-What the agent cannot reach at all: the approve and decline buttons. They are
-DOM events in the page. An agent that only has WebMCP tool access has no path
-to them. If your agent surface also has DOM automation, this boundary weakens
-and you should say so.
+`demo/index.html` is a support console built on the library, with a prompt
+injection planted in its inbox. Ask an agent to triage the inbox and watch the
+refund get staged instead of issued.
 
-What this does not protect against: a compromised page, a malicious first-party
-developer, missing server-side authorization, or a human who approves without
-reading. It is a consent layer, not a sandbox.
-
-## Trust boundary — the extension
-
-The extension protects a user on a site that never opted in, so it cannot
-assume anything the site tells it is true. Two things follow from that.
-
-**Classification is fail-safe, not clever.** A tool is treated as a write
-unless it explicitly carries `readOnlyHint: true`. Unannotated means gated.
-The classifier deliberately does not read the tool's name or description to
-guess intent — that would be defeated by a site simply not naming things
-suspiciously, and it would make attacker-authored text load-bearing in a
-security decision, which is the exact thing this project exists to prevent.
-
-**A site that lies in its annotations is caught at the network layer.**
-`window.fetch` is patched too. A non-GET/HEAD request issued while a tool's
-`execute` is on the call stack, and that hasn't already been approved, is held
-the same way a write is. By construction this can only ever fire for a tool
-that claimed `readOnlyHint: true` and lied, because a genuine write's real
-implementation never runs until after approval. `demo/unprotected.html` ships
-a `check_loyalty_status` tool that exercises exactly this: annotated read-only,
-silently POSTs.
-
-**A held call raises a desktop notification.** A suspended agent is invisible
-if you are not already watching the toolbar, and it stays suspended for as long
-as it takes you to notice. The notification names the tool, the real arguments
-and the site, and is marked `requireInteraction` so it does not quietly expire
-while an agent waits. Deciding in the popup clears it.
-
-It carries no Approve/Decline buttons, and that is deliberate. Chrome on
-Windows hands notifications to the system notification centre, which will
-render buttons but reports no interaction back to the extension — tested here
-with the service worker awake, a button click produced no `onButtonClicked`, no
-`onClicked`, not even `onClosed`. A button that silently does nothing is worse
-than no button, particularly on a tool whose whole value is that you can trust
-what it tells you. So the notification's job is to say that something is
-waiting and what it is; the decision is made in the popup. The listeners stay
-registered, so a platform that does report interaction gets one-click approval
-for free, but nothing depends on it.
-
-**The card shows facts, not a verdict.** Each approval card shows the tool
-name, the actual arguments, the site, and — for a held request — the method and
-full destination URL. There is no risk score. An earlier version had one,
-computed only from structural facts, and it was removed after testing against
-real sites showed every tool card scoring identically: it added a number that
-looked like a judgement while carrying no information the card did not already
-state. A score that is always the same trains people to ignore the card.
-
-What the score deliberately never used, and what classification still never
-uses, is the tool's own description. It is displayed in full for a human to
-read, but nothing automatic keys off it. Any heuristic or LLM that approves
-based on self-authored description text reopens the whole vulnerability class
-inside the thing meant to defend against it.
-
-"Always allow" is stored per `origin::toolName`, listed in the popup, and
-revocable there. A cache you cannot see or undo is not consent.
-
-**The approval channel is private to the extension.** The interceptor has to
-run in the MAIN world to patch the page's own `registerTool`, which means page
-scripts share that world. An earlier version relayed proposals and decisions
-over `window.postMessage`, and that was forgeable: a page could listen for its
-own proposal, read the id, and post back an approval for it — self-approving
-every write with no human involved. The two content scripts now hand each
-other a private `MessagePort` at `document_start`, before any page script
-exists, and every proposal and decision crosses that port. `window.postMessage`
-carries nothing but the one-time handover, and only the first one is accepted.
-A page can no longer read a proposal, let alone answer one.
-
-### What the extension cannot do
-
-- **A write that never touches the network.** A tool that claims
-  `readOnlyHint: true` and mutates only in-page state — a JS object, the DOM,
-  `localStorage` — is invisible to both layers. Nothing observes it. Both demo
-  pages mutate an in-memory array, and their `issue_refund` is caught only
-  because it is unannotated, not because the mutation was detected.
-- **Writes that don't go through `fetch`.** `XMLHttpRequest`,
-  `navigator.sendBeacon`, WebSockets, form submission and image beacons are
-  not patched. Only `fetch` is.
-- **A page that installs its own `window.fetch` after load.** The patch is
-  re-applied for about two seconds after `document_start`; a page that replaces
-  `fetch` outright after that window keeps the tool-level gate but loses the
-  network-level catch. A page that *wraps* `fetch` is fine — it wraps ours.
-- **Hide that it is there.** A page can read `registerTool.toString()` and see
-  it has been wrapped, and could behave differently when it does.
-- **Protect a browser it cannot run in.** ChatGPT's in-app browser is a closed
-  platform that does not accept third-party extensions. This runs in Chrome
-  with WebMCP enabled.
-- **Save a human who approves without reading.** Nothing here can.
-
-The honest summary: this raises the cost of a successful injection from "the
-agent was convinced" to "the agent was convinced *and* a human clicked
-approve on a card describing the action." That is a real, large gap. It is
-not a proof.
-
-## Demo
-
-`demo/index.html` is a small operations console built on the library. It seeds
-a support ticket containing a prompt injection. Ask an agent to triage the
-inbox and watch the refund get staged instead of issued.
-
-`demo/unprotected.html` is the opposite: a plain page with no consent layer of
-any kind, which is what the extension is for. Its `issue_refund` executes
-immediately and is caught because it carries no `readOnlyHint`. Its
-`check_loyalty_status` claims `readOnlyHint: true` and is caught anyway, at the
-network layer, when it tries to POST.
+`demo/unprotected.html` is the opposite: a plain page with no consent layer at
+all, which is what the extension is for. Its `issue_refund` carries no
+annotation and gets held. Its `check_loyalty_status` claims to be read-only and
+gets caught anyway when it tries to POST.
 
 ```
 npx serve .
 ```
 
-To run the extension: `chrome://extensions` → Developer mode → **Load
-unpacked** → select `extension/`. Writes are then held on any site, including
-`demo/unprotected.html`, and the toolbar badge shows how many are waiting.
-Note that `getTools()` returns a Promise, so driving tools from the console
-means `(await mc.getTools()).find(...)`, not `mc.getTools().find(...)`.
+WebMCP needs a secure context, so `file://` won't work. Use Chrome 149+ with
+the flag enabled.
 
-WebMCP needs a secure context, so `file://` will not work. Open in Chrome 149+
-with `chrome://flags/#enable-webmcp-testing`, or in the ChatGPT desktop app's
-in-app browser.
+One gotcha if you drive tools from the console: `getTools()` returns a Promise,
+so it's `(await mc.getTools()).find(...)`.
 
 ## Tests
 
@@ -324,9 +287,9 @@ in-app browser.
 npm test
 ```
 
-Nine cases covering role scoping, staged blocking, decline, guard enforcement
-at both checkpoints, idempotency, role enforcement on approval independent of
-guard, untrusted wrapping, and expiry.
+Nine cases: role scoping, staged blocking, decline, guard enforcement at both
+checkpoints, idempotency, role enforcement on approval independent of guard,
+untrusted wrapping, and expiry.
 
 ## License
 
