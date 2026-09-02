@@ -221,6 +221,16 @@ implementation never runs until after approval. `demo/unprotected.html` ships
 a `check_loyalty_status` tool that exercises exactly this: annotated read-only,
 silently POSTs.
 
+**A held call raises a desktop notification.** A suspended agent is invisible
+if you are not already watching the toolbar, and it stays suspended for as long
+as it takes you to notice. The notification carries the tool name, the real
+arguments and the site, with Approve and Decline on it, so a proposal can be
+answered without opening anything. It is marked `requireInteraction`, so it
+does not quietly time out while an agent waits. Dismissing it is deliberately
+not a decision — the proposal stays queued and the popup still shows it, since
+silently declining on a stray click is worse than making you look. Answering on
+either surface clears the other.
+
 **The card shows facts, not a verdict.** Each approval card shows the tool
 name, the actual arguments, the site, and — for a held request — the method and
 full destination URL. There is no risk score. An earlier version had one,

@@ -134,6 +134,16 @@ crosses that port, and `window.postMessage` carries nothing but the one-time
 handover. Re-running the exploit afterwards, the page could not even observe a
 proposal: the call stayed suspended, waiting for a human.
 
+**Notifications, because a suspended agent is invisible.** A held call stops an
+agent mid-execution and it stays stopped until someone notices — which, if you
+are not already watching the toolbar, could be a long time. Each proposal
+raises a desktop notification carrying the tool, the real arguments and the
+site, with Approve and Decline on it, so it can be answered without opening
+anything. It is `requireInteraction`, so it will not quietly expire while an
+agent waits on it. Dismissing is deliberately not a decision: the proposal
+stays queued and the popup still shows it, because silently declining on a
+stray click is worse than making someone look. Either surface clears the other.
+
 **A card that shows facts, not a verdict.** The card carries the tool name, the
 real arguments, the site, and for a held request the method and full
 destination URL. There is deliberately no risk score. One was built — scored

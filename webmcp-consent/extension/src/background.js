@@ -15,6 +15,50 @@
 const PENDING_KEY = 'pending';
 const WHITELIST_KEY = 'whitelist';
 
+// A held call is invisible if the operator isn't already looking at the
+// toolbar, and the agent is sitting there suspended the whole time. The
+// notification carries the same two decisions as the popup so a proposal can
+// be answered without opening anything. Its id is the proposal id, which makes
+// clearing it on a decision made elsewhere a one-liner.
+const NOTIFY_APPROVE = 0;
+const NOTIFY_DECLINE = 1;
+
+function describe(p) {
+  let args = '';
+  try {
+    const entries = Object.entries(p.input || {});
+    if (entries.length) {
+      args = entries.map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join(', ');
+    }
+  } catch { /* unserialisable input still deserves a notification */ }
+  let host = p.pageUrl || '';
+  try { host = new URL(p.pageUrl).host; } catch { /* keep the raw string */ }
+  return { args, host };
+}
+
+async function notify(p) {
+  const { args, host } = describe(p);
+  const title = p.kind === 'network'
+    ? 'A "read-only" tool tried to send a request'
+    : 'Approval needed';
+  try {
+    await chrome.notifications.create(p.id, {
+      type: 'basic',
+      iconUrl: chrome.runtime.getURL('icons/icon128.png'),
+      title,
+      message: `${p.tool}${args ? `\n${args}` : ''}\n\n${host}`,
+      contextMessage: 'WebMCP Consent',
+      priority: 2,
+      requireInteraction: true, // a suspended agent shouldn't time out silently
+      buttons: [{ title: 'Approve' }, { title: 'Decline' }],
+    });
+  } catch { /* notifications may be blocked at the OS level; the popup still works */ }
+}
+
+async function clearNotification(id) {
+  try { await chrome.notifications.clear(id); } catch { /* already gone */ }
+}
+
 async function getPending() {
   const got = await chrome.storage.session.get(PENDING_KEY);
   return got[PENDING_KEY] || [];
@@ -51,7 +95,7 @@ async function removeWhitelisted(key) {
 
 async function handlePropose(msg, sender) {
   const pending = await getPending();
-  pending.push({
+  const entry = {
     id: msg.id,
     kind: msg.kind,
     key: msg.key || null,
@@ -62,8 +106,10 @@ async function handlePropose(msg, sender) {
     pageTitle: msg.pageTitle,
     tabId: sender.tab ? sender.tab.id : null,
     receivedAt: Date.now(),
-  });
+  };
+  pending.push(entry);
   await setPending(pending);
+  await notify(entry);
 }
 
 async function handleDecide(msg) {
@@ -73,6 +119,8 @@ async function handleDecide(msg) {
 
   const [p] = pending.splice(idx, 1);
   await setPending(pending);
+  // Whichever surface answered, the other one must stop asking.
+  await clearNotification(p.id);
 
   if (msg.approved && msg.alwaysAllow && p.key) {
     await setWhitelisted(p.key, { tool: p.tool, pageUrl: p.pageUrl });
@@ -128,6 +176,28 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       return;
   }
 });
+
+// Approve/Decline straight from the notification. The notification id is the
+// proposal id, so this routes into exactly the same path the popup uses --
+// there is no second decision route to keep in sync, and no way to approve
+// something the queue doesn't still hold.
+try {
+  chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
+    if (buttonIndex !== NOTIFY_APPROVE && buttonIndex !== NOTIFY_DECLINE) return;
+    handleDecide({
+      id: notificationId,
+      approved: buttonIndex === NOTIFY_APPROVE,
+      alwaysAllow: false, // "always allow" stays a deliberate choice made in the popup
+    }).catch(() => {});
+  });
+
+  // Dismissing the notification is not a decision. The proposal stays queued
+  // and the popup still shows it -- silently declining on a stray click would
+  // be worse than leaving the agent waiting.
+  chrome.notifications.onClicked.addListener(() => {
+    chrome.action.openPopup().catch(() => {});
+  });
+} catch { /* notifications unavailable; popup remains the full interface */ }
 
 // The badge is the only state that doesn't survive an eviction on its own.
 getPending().then((pending) => updateBadge(pending.length)).catch(() => {});
