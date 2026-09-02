@@ -223,13 +223,20 @@ silently POSTs.
 
 **A held call raises a desktop notification.** A suspended agent is invisible
 if you are not already watching the toolbar, and it stays suspended for as long
-as it takes you to notice. The notification carries the tool name, the real
-arguments and the site, with Approve and Decline on it, so a proposal can be
-answered without opening anything. It is marked `requireInteraction`, so it
-does not quietly time out while an agent waits. Dismissing it is deliberately
-not a decision — the proposal stays queued and the popup still shows it, since
-silently declining on a stray click is worse than making you look. Answering on
-either surface clears the other.
+as it takes you to notice. The notification names the tool, the real arguments
+and the site, and is marked `requireInteraction` so it does not quietly expire
+while an agent waits. Deciding in the popup clears it.
+
+It carries no Approve/Decline buttons, and that is deliberate. Chrome on
+Windows hands notifications to the system notification centre, which will
+render buttons but reports no interaction back to the extension — tested here
+with the service worker awake, a button click produced no `onButtonClicked`, no
+`onClicked`, not even `onClosed`. A button that silently does nothing is worse
+than no button, particularly on a tool whose whole value is that you can trust
+what it tells you. So the notification's job is to say that something is
+waiting and what it is; the decision is made in the popup. The listeners stay
+registered, so a platform that does report interaction gets one-click approval
+for free, but nothing depends on it.
 
 **The card shows facts, not a verdict.** Each approval card shows the tool
 name, the actual arguments, the site, and — for a held request — the method and

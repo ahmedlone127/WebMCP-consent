@@ -137,12 +137,19 @@ proposal: the call stayed suspended, waiting for a human.
 **Notifications, because a suspended agent is invisible.** A held call stops an
 agent mid-execution and it stays stopped until someone notices — which, if you
 are not already watching the toolbar, could be a long time. Each proposal
-raises a desktop notification carrying the tool, the real arguments and the
-site, with Approve and Decline on it, so it can be answered without opening
-anything. It is `requireInteraction`, so it will not quietly expire while an
-agent waits on it. Dismissing is deliberately not a decision: the proposal
-stays queued and the popup still shows it, because silently declining on a
-stray click is worse than making someone look. Either surface clears the other.
+raises a desktop notification naming the tool, the real arguments and the site,
+marked `requireInteraction` so it will not quietly expire while an agent waits.
+
+It has no Approve/Decline buttons, and that decision is worth explaining
+because it was made the hard way. They were built, and then tested: Chrome on
+Windows delegates to the system notification centre, which renders buttons but
+returns no interaction to the extension at all. With the service worker awake,
+a click produced no `onButtonClicked`, no `onClicked`, not even `onClosed`.
+Shipping them would have meant a judge clicking Approve and watching nothing
+happen — on a security tool, at the exact moment it needs to look trustworthy.
+So the notification tells you something is waiting and what it is; the popup is
+where you decide. The listeners stay registered, so a platform that does report
+interaction gets one-click approval for free and nothing depends on it.
 
 **A card that shows facts, not a verdict.** The card carries the tool name, the
 real arguments, the site, and for a held request the method and full

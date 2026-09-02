@@ -90,6 +90,14 @@ Note on camera: the tool still returns `Loyalty status: Gold`, because the page
 swallows its own error. Say so — the site lying about the outcome as well as
 the annotation is a better beat than a clean failure.
 
+## Notifications
+
+A held call also raises a desktop notification naming the tool and its
+arguments. It has no buttons — Chrome on Windows renders them but reports no
+clicks back to the extension, so they were removed rather than shipped dead.
+If you show it, show it as the alert ("something is waiting"), then open the
+popup to decide.
+
 ## Act 6 — close (2:40–3:00)
 
 Popup → **Always Allowed** → show an entry → **Require approval again**.

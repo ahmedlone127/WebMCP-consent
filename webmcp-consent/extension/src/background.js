@@ -16,10 +16,18 @@ const PENDING_KEY = 'pending';
 const WHITELIST_KEY = 'whitelist';
 
 // A held call is invisible if the operator isn't already looking at the
-// toolbar, and the agent is sitting there suspended the whole time. The
-// notification carries the same two decisions as the popup so a proposal can
-// be answered without opening anything. Its id is the proposal id, which makes
-// clearing it on a decision made elsewhere a one-liner.
+// toolbar, and the agent sits suspended the whole time. The notification's job
+// is to say that something is waiting and what it is; the decision itself is
+// made in the popup.
+//
+// It deliberately carries no Approve/Decline buttons. Chrome on Windows hands
+// notifications to the system notification centre, which renders buttons but
+// delivers no interaction back to the extension -- verified here with the
+// service worker awake: a button click produced no onButtonClicked, no
+// onClicked, not even onClosed. A button that silently does nothing is worse
+// than no button, especially on a security tool. The listeners below stay
+// registered because platforms that do deliver these events get one-click
+// approval for free, but nothing depends on them.
 const NOTIFY_APPROVE = 0;
 const NOTIFY_DECLINE = 1;
 
@@ -46,11 +54,10 @@ async function notify(p) {
       type: 'basic',
       iconUrl: chrome.runtime.getURL('icons/icon128.png'),
       title,
-      message: `${p.tool}${args ? `\n${args}` : ''}\n\n${host}`,
+      message: `${p.tool}${args ? `\n${args}` : ''}\n${host}\n\nOpen WebMCP Consent to approve or decline.`,
       contextMessage: 'WebMCP Consent',
       priority: 2,
       requireInteraction: true, // a suspended agent shouldn't time out silently
-      buttons: [{ title: 'Approve' }, { title: 'Decline' }],
     });
   } catch { /* notifications may be blocked at the OS level; the popup still works */ }
 }
@@ -181,6 +188,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 // proposal id, so this routes into exactly the same path the popup uses --
 // there is no second decision route to keep in sync, and no way to approve
 // something the queue doesn't still hold.
+// Kept for platforms whose notification centre actually reports interaction
+// back to the extension. Where they fire, a proposal can be answered without
+// opening anything; where they don't, nothing is lost because the notification
+// never promised a button in the first place. Either way this routes into the
+// same handleDecide the popup uses -- there is no second decision path, and a
+// late click on an already-answered proposal is a no-op.
 try {
   chrome.notifications.onButtonClicked.addListener((notificationId, buttonIndex) => {
     if (buttonIndex !== NOTIFY_APPROVE && buttonIndex !== NOTIFY_DECLINE) return;
@@ -191,13 +204,13 @@ try {
     }).catch(() => {});
   });
 
-  // Dismissing the notification is not a decision. The proposal stays queued
-  // and the popup still shows it -- silently declining on a stray click would
-  // be worse than leaving the agent waiting.
+  // Dismissing is not a decision: the proposal stays queued and the popup still
+  // shows it. Silently declining on a stray click would be worse than leaving
+  // the agent waiting.
   chrome.notifications.onClicked.addListener(() => {
     chrome.action.openPopup().catch(() => {});
   });
-} catch { /* notifications unavailable; popup remains the full interface */ }
+} catch { /* notifications unavailable; the popup remains the full interface */ }
 
 // The badge is the only state that doesn't survive an eviction on its own.
 getPending().then((pending) => updateBadge(pending.length)).catch(() => {});
