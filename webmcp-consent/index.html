@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>webmcp-consent — a consent layer for WebMCP tools</title>
+<meta name="description" content="A Chrome extension that holds every WebMCP write for human approval, on any site, whether or not that site adopted anything. Reads run freely. Injected text can reach the agent; it cannot reach the button.">
+<meta property="og:title" content="webmcp-consent">
+<meta property="og:description" content="Injected text can reach the agent. It cannot reach the button. A consent layer for WebMCP that works on sites that never adopted it.">
+<meta property="og:type" content="website">
+<style>
+  :root{
+    --bg:#EDF0F3;--surface:#fff;--ink:#171C23;--ink-2:#5A6472;--ink-3:#8C97A5;
+    --line:#D5DCE4;--line-2:#E7ECF1;--mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+    --accent:#B4690E;--accent-bg:#FDF4E5;--ok:#0F6D68;--ok-bg:#E9F3F2;--danger:#A32626;--danger-bg:#FBEBEB;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.6 system-ui,sans-serif}
+  header{background:var(--surface);border-bottom:1px solid var(--line);padding:14px 20px}
+  .brand{font-weight:650;font-size:15px}
+  .brand span{color:var(--ink-3);font-weight:400;margin-left:9px;font-size:13px}
+  main{max-width:820px;margin:0 auto;padding:24px 20px 56px}
+  h1{font-size:23px;line-height:1.35;margin:8px 0 10px;font-weight:650;letter-spacing:-.01em}
+  h2{font:11px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-2);
+    margin:34px 0 12px}
+  p{margin:0 0 12px}
+  .lede{font-size:15.5px;color:var(--ink-2)}
+  a{color:var(--accent)}
+  section{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:16px 18px;margin-bottom:12px}
+  .status{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0 4px}
+  .chip{flex:1 1 240px;border:1px solid var(--line);border-radius:5px;padding:11px 13px;background:var(--surface)}
+  .chip .k{font:10.5px var(--mono);letter-spacing:.06em;text-transform:uppercase;color:var(--ink-3)}
+  .chip .v{font-weight:600;font-size:13.5px;margin-top:3px}
+  .chip .n{font-size:12px;color:var(--ink-2);margin-top:2px}
+  .chip.yes{background:var(--ok-bg);border-color:#BFD9D6}
+  .chip.yes .v{color:var(--ok)}
+  .chip.no{background:var(--danger-bg);border-color:#E5C0C0}
+  .chip.no .v{color:var(--danger)}
+  ol{margin:0;padding-left:19px}
+  ol li{margin-bottom:9px}
+  code{font:12.5px var(--mono);background:var(--bg);border:1px solid var(--line-2);
+    border-radius:3px;padding:1px 5px}
+  .btn{display:inline-block;background:var(--accent);color:#fff;text-decoration:none;
+    font-weight:600;font-size:13.5px;padding:9px 15px;border-radius:4px}
+  .btn.alt{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+  .cards{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media(max-width:700px){.cards{grid-template-columns:1fr}}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:5px;padding:15px 17px}
+  .card h3{margin:0 0 5px;font-size:14.5px}
+  .card p{font-size:13px;color:var(--ink-2);margin-bottom:11px}
+  .tag{font:10px var(--mono);letter-spacing:.05em;text-transform:uppercase;color:var(--accent);
+    background:var(--accent-bg);border:1px solid #EBD9BC;border-radius:9px;padding:2px 7px}
+  .note{font-size:12.5px;color:var(--ink-2)}
+  footer{border-top:1px solid var(--line);margin-top:34px;padding-top:16px;font-size:12.5px;color:var(--ink-2)}
+  ul.plain{margin:0;padding-left:19px}
+  ul.plain li{margin-bottom:6px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">webmcp-consent<span>a consent layer for WebMCP tools</span></div>
+</header>
+
+<main>
+  <h1>Injected text can reach the agent.<br>It cannot reach the button.</h1>
+  <p class="lede">
+    WebMCP lets an agent act inside a tab you are already signed into. That is the
+    point of the standard, and also the risk. This holds every write for a human
+    click &mdash; on any site, whether or not that site ever adopted anything.
+    Reads run freely.
+  </p>
+
+  <h2>Your browser, right now</h2>
+  <div class="status" id="status">
+    <div class="chip"><div class="k">WebMCP</div><div class="v">checking&hellip;</div></div>
+    <div class="chip"><div class="k">Extension</div><div class="v">checking&hellip;</div></div>
+  </div>
+
+  <h2>Try it &mdash; about a minute</h2>
+  <section>
+    <ol>
+      <li>
+        Enable WebMCP: open <code>chrome://flags/#enable-webmcp-testing</code>,
+        set it to <b>Enabled</b>, relaunch.
+      </li>
+      <li>
+        <a class="btn" href="/webmcp-consent-extension.zip" download>Download the extension</a>
+        &nbsp;<span class="note">(15&nbsp;KB, zero dependencies)</span>
+      </li>
+      <li>Unzip it. Open <code>chrome://extensions</code>, turn on <b>Developer mode</b>,
+        click <b>Load unpacked</b>, and select the unzipped folder.</li>
+      <li>Open either demo below, or any WebMCP site at all, and point an agent at it.</li>
+    </ol>
+  </section>
+
+  <h2>Two things to try it on</h2>
+  <div class="cards">
+    <div class="card">
+      <span class="tag">extension</span>
+      <h3 style="margin-top:8px">Anywhere Goods</h3>
+      <p>
+        A deliberately plain storefront with no consent layer of its own &mdash; what
+        most of the web looks like. Its <code>issue_refund</code> carries no annotation
+        and gets held anyway. Its <code>check_loyalty_status</code> claims to be
+        read-only and quietly POSTs; that gets caught at the network layer.
+      </p>
+      <a class="btn alt" href="/demo/unprotected.html">Open Anywhere Goods</a>
+    </div>
+    <div class="card">
+      <span class="tag">library</span>
+      <h3 style="margin-top:8px">Ledger</h3>
+      <p>
+        A support console built <i>on</i> the library, for developers who want the
+        consent layer designed in rather than patched on from outside: staged
+        proposals with real diffs, role scoping, an audit trail. Its inbox contains
+        a planted prompt injection.
+      </p>
+      <a class="btn alt" href="/demo/index.html">Open Ledger</a>
+    </div>
+  </div>
+
+  <h2>How it works</h2>
+  <section>
+    <p>
+      <code>registerTool</code> is a property holding a function. A content script runs
+      at <code>document_start</code> in the MAIN world &mdash; before any of the page's
+      own scripts &mdash; and replaces it with a wrapper. The site registers its tools
+      completely normally and is calling ours. It never knows.
+    </p>
+    <p>
+      Classification is one line: no <code>readOnlyHint</code> means it is a write.
+      Unannotated is treated as dangerous. It deliberately never reads the tool's name
+      or description to guess intent &mdash; that text is attacker-reachable, and making
+      it load-bearing in a security decision is the exact thing this defends against.
+    </p>
+    <p style="margin-bottom:0">
+      <code>fetch</code> is patched too. A tool that claims <code>readOnlyHint: true</code>
+      but fires a POST while running gets held the same way, so a site cannot simply lie
+      in its annotations.
+    </p>
+  </section>
+
+  <h2>What it cannot do</h2>
+  <section>
+    <ul class="plain">
+      <li>A write that never touches the network &mdash; one that mutates only in-page
+        state &mdash; is invisible to both layers.</li>
+      <li>Only <code>fetch</code> is patched, not <code>XMLHttpRequest</code>,
+        <code>sendBeacon</code>, or WebSockets.</li>
+      <li>ChatGPT's in-app browser does not accept third-party extensions, so this runs
+        in Chrome with WebMCP enabled.</li>
+      <li>Nothing here saves someone who approves without reading.</li>
+    </ul>
+    <p class="note" style="margin:11px 0 0">
+      It raises the cost of a successful injection from &ldquo;the agent was
+      convinced&rdquo; to &ldquo;the agent was convinced <i>and</i> a human approved a
+      card describing the action.&rdquo; That is a real, large gap. It is not a proof.
+    </p>
+  </section>
+
+  <footer>
+    <a href="https://github.com/ahmedlone127/WebMCP-consent">Source on GitHub</a> &middot;
+    <a href="https://www.npmjs.com/package/webmcp-consent">webmcp-consent on npm</a> &middot;
+    MIT
+  </footer>
+</main>
+
+<script>
+(function () {
+  // The extension patches window.fetch on every page it runs on, whether or not
+  // that page exposes any WebMCP tools -- so this is a reliable presence check
+  // even here, where nothing is registered.
+  var hasWebMCP = ('modelContext' in document) || ('modelContext' in navigator);
+  var hasExt = false;
+  try { hasExt = window.fetch && window.fetch.__wmcPatched === true; } catch (e) {}
+
+  function chip(k, ok, v, n) {
+    return '<div class="chip ' + (ok ? 'yes' : 'no') + '">' +
+      '<div class="k">' + k + '</div><div class="v">' + v + '</div>' +
+      '<div class="n">' + n + '</div></div>';
+  }
+
+  // The patch is applied at document_start, but give it a moment in case this
+  // script wins the race on a slow load.
+  setTimeout(function () {
+    try { hasExt = window.fetch && window.fetch.__wmcPatched === true; } catch (e) {}
+    document.getElementById('status').innerHTML =
+      chip('WebMCP', hasWebMCP,
+        hasWebMCP ? 'Enabled in this browser' : 'Not enabled',
+        hasWebMCP ? 'document.modelContext is available.'
+                  : 'Turn on chrome://flags/#enable-webmcp-testing and relaunch.') +
+      chip('Extension', hasExt,
+        hasExt ? 'Installed and running' : 'Not detected',
+        hasExt ? 'Writes on any WebMCP site are being held for your approval.'
+               : 'Download it below and load it unpacked.');
+  }, 250);
+})();
+</script>
+
+</body>
+</html>
