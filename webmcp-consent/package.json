@@ -1,6 +1,6 @@
 {
   "name": "webmcp-consent",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "A consent layer for WebMCP tools. Reads run freely, writes stage a proposal a human approves in the page.",
   "type": "module",
   "main": "./src/index.js",
