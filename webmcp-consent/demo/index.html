@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Ledger — webmcp-consent demo</title>
-<meta name="description" content="Ledger is a support-ops console demo for webmcp-consent, a consent layer for WebMCP tools. Reads run freely; writes stage a proposal a human must approve in the page. Watch a live prompt-injection attempt get staged instead of executed.">
-<link rel="canonical" href="https://webmcp-consent-7d22c356.netlify.app/">
+<title>Ledger — plain WebMCP, held by the extension</title>
+<meta name="description" content="A support console with plain WebMCP tools and no consent layer of its own. Its inbox contains a planted prompt injection. The WebMCP Consent extension holds the refund for human approval before it can run.">
+<link rel="canonical" href="https://webmcp-consent-7d22c356.netlify.app/demo/index.html">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://webmcp-consent-7d22c356.netlify.app/">
-<meta property="og:title" content="Ledger — webmcp-consent demo">
-<meta property="og:description" content="A consent layer for WebMCP tools: reads run freely, writes stage a proposal a human approves in the page. Watch a live prompt-injection attempt get caught.">
+<meta property="og:url" content="https://webmcp-consent-7d22c356.netlify.app/demo/index.html">
+<meta property="og:title" content="Ledger — plain WebMCP, held by the extension">
+<meta property="og:description" content="A support console with plain WebMCP tools and a prompt injection planted in its inbox. Reads run freely; the refund is held by the WebMCP Consent extension until a human approves it.">
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
@@ -17,7 +17,7 @@
   "name": "webmcp-consent",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Any (runs in-browser)",
-  "description": "A consent layer for WebMCP tools. Reads run freely; writes stage a proposal a human must approve in the page before it executes.",
+  "description": "A Chrome extension that holds every WebMCP write until a human approves it, on any site, including sites that never adopted anything. Reads run freely.",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
   "license": "https://opensource.org/licenses/MIT",
   "codeRepository": "https://github.com/ahmedlone127/WebMCP-consent",
@@ -191,11 +191,12 @@
 
   <div>
     <section>
-      <h2>Pending approvals</h2>
+      <h2>Approvals</h2>
       <div class="body" id="approvals"></div>
       <div class="note">
-        Approval lives here, in the page. Injected text can reach the agent.
-        It cannot reach this button.
+        This site has no consent layer of its own. Writes are held by the
+        WebMCP Consent extension, in a window the page cannot reach. Injected
+        text can reach the agent. It cannot reach that button.
       </div>
     </section>
     <section>
@@ -212,7 +213,6 @@
 </div>
 
 <script type="module">
-import { createConsentLayer, mountApprovalQueue, mountAuditLog } from '../src/index.js';
 
 const orders = [
   { id:'ORD-4401', customer:'Prime Hardware Co',          total:342.10,  status:'delivered',  date:'2026-08-12' },
@@ -262,71 +262,117 @@ const CEILING = { support: 200, manager: 1000, owner: Infinity };
 const money = n => '$' + n.toFixed(2);
 const $ = id => document.getElementById(id);
 
-const consent = createConsentLayer({ role: 'support' });
+/* This page registers plain WebMCP tools and nothing else. There is no consent
+   layer in this code. Every guarantee below comes from the extension. */
+const mc = document.modelContext || navigator.modelContext;
 
-$('status').textContent = consent.available
-  ? 'WebMCP active'
-  : 'WebMCP unavailable — enable chrome://flags/#enable-webmcp-testing';
-$('status').className = 'pill ' + (consent.available ? 'on' : 'off');
+let role = 'support';
+let controller = null;
+const audit = [];
 
-/* -------------------------------------------------- reads: no approval ---- */
+function note(actor, text) {
+  audit.unshift({ actor, text, at: new Date().toLocaleTimeString() });
+  if (audit.length > 40) audit.pop();
+  renderLog();
+}
 
-consent.registerRead({
-  name: 'search_orders',
-  description: 'List orders with customer, total and fulfilment status.',
-  inputSchema: { type:'object', properties:{ status:{ type:'string', description:'processing, shipped or delivered' } } },
-  execute: async ({ status }) => JSON.stringify(orders.filter(o => !status || o.status === status)),
-});
+function renderStatus() {
+  const extension = !!(window.fetch && window.fetch.__wmcPatched);
+  const el = $('status');
+  if (!mc) {
+    el.textContent = 'WebMCP unavailable — enable chrome://flags/#enable-webmcp-testing';
+    el.className = 'pill off';
+  } else if (!extension) {
+    el.textContent = 'WebMCP active · extension not detected';
+    el.className = 'pill off';
+  } else {
+    el.textContent = 'WebMCP active · writes are being held';
+    el.className = 'pill on';
+  }
+}
 
-consent.registerRead({
-  name: 'get_customer_messages',
-  description: 'Read the customer message inbox.',
-  inputSchema: { type:'object', properties:{} },
-  execute: async () => messages.map(m => `From ${m.from}: ${m.text}`).join('\n'),
-});
+/* Reads carry readOnlyHint: true, so the extension recognises them as safe and
+   lets them run untouched. Writes carry no annotation at all, which is what
+   almost every real site ships, and the extension holds those before execute()
+   is ever called. Nothing here asks it to. */
 
-/* ------------------------------------------- writes: staged, never run ---- */
-
-consent.registerStaged({
-  name: 'propose_refund',
-  description: 'Refund an order.',
-  roles: ['support', 'manager', 'owner'],
-  inputSchema: { type:'object', properties:{
-    order_id:{ type:'string' }, amount:{ type:'number' }, reason:{ type:'string' },
-  }, required:['order_id','amount','reason'] },
-  guard: ({ order_id, amount }, { role }) => {
-    if (!orders.find(o => o.id === order_id)) return `No order ${order_id}.`;
-    if (amount > CEILING[role]) return `${money(amount)} exceeds the ${role} ceiling of ${money(CEILING[role])}.`;
-    return true;
+const TOOLS = [
+  {
+    name: 'search_orders',
+    description: 'List orders with customer, total and fulfilment status.',
+    inputSchema: { type:'object', properties:{ status:{ type:'string', description:'processing, shipped or delivered' } } },
+    annotations: { readOnlyHint: true },
+    execute: async ({ status }) => {
+      note('agent', `read orders${status ? ' · ' + status : ''}`);
+      return JSON.stringify(orders.filter(o => !status || o.status === status));
+    },
   },
-  preview: ({ order_id, amount }) => ({
-    summary: `Refund ${order_id}`,
-    diff: [{ field:'refunded', before:'$0.00', after: money(amount) }],
-    blastRadius: 1,
-    reversible: false,
-  }),
-  commit: async ({ order_id, amount }) => {
-    orders.find(o => o.id === order_id).status = 'refunded';
-    render();
-    return `Refunded ${money(amount)} on ${order_id}.`;
+  {
+    name: 'get_customer_messages',
+    description: 'Read the customer message inbox.',
+    inputSchema: { type:'object', properties:{} },
+    annotations: { readOnlyHint: true },
+    execute: async () => {
+      note('agent', 'read the inbox');
+      return messages.map(m => `From ${m.from}: ${m.text}`).join('\n');
+    },
   },
-});
+  {
+    name: 'issue_refund',
+    description: 'Refund an order.',
+    roles: ['support', 'manager', 'owner'],
+    inputSchema: { type:'object', properties:{
+      order_id:{ type:'string' }, amount:{ type:'number' }, reason:{ type:'string' },
+    }, required:['order_id','amount','reason'] },
+    // No annotation, so the extension gates it. The ceiling below is this
+    // site's own business rule and is enforced whether or not anything gates it.
+    execute: async ({ order_id, amount }) => {
+      const order = orders.find(o => o.id === order_id);
+      if (!order) throw new Error(`No order ${order_id}.`);
+      if (amount > CEILING[role]) {
+        throw new Error(`${money(amount)} exceeds the ${role} ceiling of ${money(CEILING[role])}.`);
+      }
+      order.status = 'refunded';
+      note('human', `approved a refund of ${money(amount)} on ${order_id}`);
+      render();
+      return `Refunded ${money(amount)} on ${order_id}.`;
+    },
+  },
+  {
+    name: 'change_price',
+    description: 'Change a catalogue price.',
+    roles: ['manager', 'owner'],           // a support rep never sees this tool
+    inputSchema: { type:'object', properties:{
+      sku:{ type:'string' }, new_price:{ type:'number' }, reason:{ type:'string' },
+    }, required:['sku','new_price','reason'] },
+    execute: async ({ sku, new_price }) => {
+      note('human', `approved a price change: ${sku} to ${money(new_price)}`);
+      return `Set ${sku} to ${money(new_price)}.`;
+    },
+  },
+];
 
-consent.registerStaged({
-  name: 'propose_price_change',
-  description: 'Change a catalogue price.',
-  roles: ['manager', 'owner'],                      // support never sees this tool
-  inputSchema: { type:'object', properties:{
-    sku:{ type:'string' }, new_price:{ type:'number' }, reason:{ type:'string' },
-  }, required:['sku','new_price','reason'] },
-  preview: ({ sku, new_price }) => ({
-    summary: `Reprice ${sku}`,
-    diff: [{ field: sku, after: money(new_price) }],
-    blastRadius: 1,
-    reversible: true,
-  }),
-  commit: async ({ sku, new_price }) => `Set ${sku} to ${money(new_price)}.`,
-});
+function visibleTools() {
+  return TOOLS.filter(t => !t.roles || t.roles.includes(role));
+}
+
+/* Registration is the scope boundary. A tool the current role cannot use is
+   never registered, so the agent does not see it refused. It does not see that
+   it exists. */
+function sync() {
+  if (controller) controller.abort();
+  controller = new AbortController();
+  if (!mc) return;
+  const { signal } = controller;
+  for (const { roles, ...descriptor } of visibleTools()) {
+    mc.registerTool(descriptor, { signal });
+  }
+}
+
+function setRole(next) {
+  role = next;
+  sync();
+}
 
 /* --------------------------------------------------------------- render --- */
 
@@ -385,9 +431,13 @@ function render() {
       <div class="from">${m.from}</div>
       <div class="text">${m.text}</div></div>`).join('');
 
-  const names = consent.toolNames;
+  const names = visibleTools().map(t => t.name);
   $('tcount').textContent = names.length;
-  $('tools').innerHTML = names.map(n => `<div class="tool">${n}</div>`).join('');
+  $('tools').innerHTML = names.map(n => {
+    const gated = !TOOLS.find(t => t.name === n).annotations;
+    return `<div class="tool">${n}${gated ? ' <span class="muted">· held for approval</span>' : ''}</div>`;
+  }).join('');
+  renderStatus();
 }
 
 /* ----------------------------------------------------------- accounts --- */
@@ -408,15 +458,15 @@ function renderPersonas() {
 }
 
 function renderChip() {
-  const p = PERSONAS[consent.role];
+  const p = PERSONAS[role];
   $('chipAvatar').style.background = p.color;
   $('chipAvatar').textContent = p.initials;
   $('chipName').textContent = p.name;
   $('chipTitle').textContent = p.title;
 
   $('usermenu').innerHTML = '<div class="usermenu-label">Switch account</div>' +
-    Object.entries(PERSONAS).map(([role, p2]) => `
-      <button class="usermenu-item${role === consent.role ? ' active' : ''}" data-role="${role}">
+    Object.entries(PERSONAS).map(([r, p2]) => `
+      <button class="usermenu-item${r === role ? ' active' : ''}" data-role="${r}">
         <span class="avatar" style="background:${p2.color}">${p2.initials}</span>
         <span><div>${p2.name}</div><div class="who-title">${p2.title}</div></span>
       </button>`).join('');
@@ -424,7 +474,7 @@ function renderChip() {
   $('usermenu').querySelectorAll('.usermenu-item').forEach(btn => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
-      consent.setRole(btn.dataset.role);
+      setRole(btn.dataset.role);
       $('usermenu').classList.remove('open');
       renderChip();
       render();
@@ -432,8 +482,8 @@ function renderChip() {
   });
 }
 
-function signIn(role) {
-  consent.setRole(role);
+function signIn(r) {
+  setRole(r);
   $('login').style.display = 'none';
   $('app').style.display = '';
   renderChip();
@@ -459,11 +509,23 @@ $('orderSearch').addEventListener('input', (e) => {
 $('prevPage').addEventListener('click', () => { ordersPage--; renderOrders(); });
 $('nextPage').addEventListener('click', () => { ordersPage++; renderOrders(); });
 
-mountApprovalQueue(consent, '#approvals');
-mountAuditLog(consent, '#log');
-consent.subscribe(render);
+function renderLog() {
+  $('log').innerHTML = audit.length
+    ? audit.map(a => `<div class="tool"><b>${a.actor}</b> ${a.text} <span class="muted">${a.at}</span></div>`).join('')
+    : '<div class="muted">Nothing yet.</div>';
+}
+
+function renderApprovals() {
+  const extension = !!(window.fetch && window.fetch.__wmcPatched);
+  $('approvals').innerHTML = extension
+    ? '<div class="muted">Held writes appear in the WebMCP Consent toolbar popup, not here.</div>'
+    : '<div class="muted">No consent layer detected. Writes on this page would run immediately.</div>';
+}
 
 renderPersonas();
+sync();
+renderLog();
+renderApprovals();
 render();
 </script>
 </body>

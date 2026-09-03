@@ -5,9 +5,12 @@ A consent layer for [WebMCP](https://github.com/webmachinelearning/webmcp).
 Reads run freely. Writes stop and wait for a human to approve them, on a
 control the agent has no way to reach.
 
-There are two pieces. A **Chrome extension** that enforces this on any WebMCP
-site, including sites that never adopted anything. And an **npm library** for
-developers who want the same guarantee built into a site they own.
+It is a **Chrome extension**. It works on any WebMCP site, including sites that
+never adopted anything and don't know it exists.
+
+There is also an npm library in this repo, `webmcp-consent`, from an earlier
+version of the project. It is documented at the bottom and is not required for
+any of the above.
 
 ---
 
@@ -117,6 +120,14 @@ the action." That's a big gap, and it isn't a proof.
 ---
 
 ## The library
+
+This came first. It is a consent layer a site's own developer adopts, and it
+still works, but it only protects users of sites that chose to install it. That
+limitation is why the extension exists. Neither demo uses it any more.
+
+It stays published because it is the right answer if you are building your own
+WebMCP surface and want the gate designed in rather than applied from outside.
+Everything above works without it.
 
 ```
 npm install webmcp-consent
@@ -262,14 +273,19 @@ reading. It's a consent layer, not a sandbox.
 
 ## Demos
 
-`demo/index.html` is a support console built on the library, with a prompt
-injection planted in its inbox. Ask an agent to triage the inbox and watch the
-refund get staged instead of issued.
+Neither demo has a consent layer in its own code. Both register plain WebMCP
+tools, the way most sites will. Everything that stops a write comes from the
+extension.
 
-`demo/unprotected.html` is the opposite: a plain page with no consent layer at
-all, which is what the extension is for. Its `issue_refund` carries no
+`demo/unprotected.html` is a storefront. Its `issue_refund` carries no
 annotation and gets held. Its `check_loyalty_status` claims to be read-only and
 gets caught anyway when it tries to POST.
+
+`demo/index.html` is a support console with a prompt injection planted in its
+inbox: a message inventing a prior ticket and a pre-approved refund. Ask an
+agent to triage the inbox and watch what it tries. The refund is held either
+way, which is the point. It also scopes tools by role, so a support rep's agent
+never sees `change_price` at all.
 
 ```
 npx serve .

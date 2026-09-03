@@ -138,16 +138,12 @@ action." That is a big gap, and it is not a proof.
 
 WHERE IT CAME FROM
 
-The first version was a library, a consent layer a site's own developer could adopt.
-Alex Nahas, a judge on this challenge, pointed out that this puts the burden on the
-website's developer, so someone on a site that never adopted it gets nothing, and
-suggested moving enforcement to the user's side. That became the extension, and the
-extension became the project.
-
-The library is still published and is the right answer for a team building their own
-WebMCP surface deliberately. It is the primitive the argument rests on. But the
-question changed from what a careful site should ship to what protects someone when
-the site was not careful, which is most of the web.
+The first version put the consent layer inside the site, as something a developer
+would adopt. Alex Nahas, a judge on this challenge, pointed out the flaw: that only
+protects users of sites that chose to install it, which is nobody yet. He suggested
+moving enforcement to the user's side. That is the whole project now. Both demo pages
+were rewritten to plain WebMCP with no consent layer of their own, so everything that
+stops a write comes from the extension.
 
 
 WHAT'S NEXT
@@ -164,7 +160,7 @@ patching XMLHttpRequest and sendBeacon to close the non-fetch gap.
 ## Built with
 
 ```
-javascript, chrome-extension, manifest-v3, webmcp, mcp, web-apis, service-worker, messagechannel, npm
+javascript, chrome-extension, manifest-v3, webmcp, mcp, web-apis, service-worker, messagechannel
 ```
 
 ## Try it out links
@@ -172,7 +168,6 @@ javascript, chrome-extension, manifest-v3, webmcp, mcp, web-apis, service-worker
 ```
 https://webmcp-consent-7d22c356.netlify.app
 https://github.com/ahmedlone127/WebMCP-consent
-https://www.npmjs.com/package/webmcp-consent
 ```
 
 ## Video
@@ -196,10 +191,11 @@ No login or credentials needed.
 
 The homepage detects and shows whether both steps worked.
 
-Then open "Anywhere Goods" from the homepage and point an agent at it. Its
-issue_refund carries no annotation and is held for approval. Its check_loyalty_status
-claims readOnlyHint: true and quietly POSTs, and that request is caught at the network
-layer.
+Then open "Anywhere Goods" from the homepage and point an agent at it. Neither demo
+has a consent layer in its own code. Anywhere Goods registers issue_refund with no
+annotation, so it is held, and check_loyalty_status which claims readOnlyHint: true
+and quietly POSTs, so that request is caught at the network layer. Ledger has a prompt
+injection planted in its inbox: ask an agent to triage it and watch what it tries.
 
 It also works on third-party WebMCP sites we did not build. Try
 https://webmcp-coffee.jilles.fyi and ask an agent to add coffee to the cart. The call

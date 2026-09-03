@@ -1,19 +1,18 @@
 # webmcp-consent
 
-> A consent layer for WebMCP. Reads run freely. Writes stop and wait for a human to approve them, on a control the agent has no way to reach.
+> A Chrome extension that holds every WebMCP write until a human approves it, on any site, including sites that never adopted anything. Reads run freely.
 
-Two things live here. A Chrome extension that holds writes on any WebMCP site, including sites that never adopted anything, by replacing `registerTool` before the page's own scripts run. And an npm library for developers who want the same guarantee built into their own site.
+It works by replacing `registerTool` at `document_start` in the MAIN world, before the page's own scripts run. The site registers its tools the normal way and is calling the extension's wrapper instead. No annotation on a tool means it is treated as a write and held. `fetch` is patched too, so a tool that claims `readOnlyHint: true` and then POSTs is caught as well.
 
-This page is a landing page and registers no tools of its own. The two demos do.
+This page is a landing page and registers no tools of its own. The two demos do. Neither demo has a consent layer in its own code; everything that stops a write comes from the extension.
 
 ## Demos
 
-- [Anywhere Goods](/demo/unprotected.html): a plain storefront with no consent layer of its own, used to exercise the extension. Registers `get_messages` (read-only), `issue_refund` (no annotation, so the extension gates it), and `check_loyalty_status` (claims `readOnlyHint: true` but quietly POSTs, so the extension catches it at the network layer).
-- [Ledger](/demo/index.html): a support console built on the library. Registers `search_orders` and `get_customer_messages` (read-only), `propose_refund` and `propose_price_change` (staged, and the second only for manager and owner roles), and `get_action_history` (read-only audit log). Its inbox contains a planted prompt injection.
+- [Anywhere Goods](/demo/unprotected.html): a plain storefront. Registers `get_messages` (read-only), `issue_refund` (no annotation, so it is held), and `check_loyalty_status` (claims `readOnlyHint: true` but quietly POSTs, so the request is held at the network layer).
+- [Ledger](/demo/index.html): a support console with a planted prompt injection in its customer inbox. Registers `search_orders` and `get_customer_messages` (read-only), `issue_refund` (held), and `change_price` (held, and only registered for manager and owner roles). Ask an agent to triage the inbox and watch what it tries.
 
-## Docs
+## Links
 
-- [README](/README.md): API reference, both trust boundaries, and an explicit list of what the extension cannot do.
+- [README](/README.md): how the interception works, and an explicit list of what the extension cannot do.
 - [Extension download](/webmcp-consent-extension.zip): unzip and load unpacked at chrome://extensions.
-- [npm](https://www.npmjs.com/package/webmcp-consent): `npm install webmcp-consent`
 - [GitHub](https://github.com/ahmedlone127/WebMCP-consent): full source, MIT.

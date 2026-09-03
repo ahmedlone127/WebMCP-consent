@@ -1,7 +1,7 @@
 {
   "name": "webmcp-consent",
   "description": "A consent layer for WebMCP. Reads run freely; writes stop and wait for a human to approve them.",
-  "note": "The WebMCP community group has not specified a .well-known/webmcp schema as of writing, so this is not a claim of conformance to a ratified standard. It is a best-effort discovery aid. This URL is a landing page and registers no tools itself; the tools below belong to the demo pages listed with them.",
+  "note": "The WebMCP community group has not specified a .well-known/webmcp schema as of writing, so this is not a claim of conformance to a ratified standard. It is a best-effort discovery aid. This URL is a landing page and registers no tools itself; the tools below belong to the demo pages listed with them. Neither demo has a consent layer in its own code. Writes are held by the browser extension.",
   "url": "https://webmcp-consent-7d22c356.netlify.app/",
   "repository": "https://github.com/ahmedlone127/WebMCP-consent",
   "license": "MIT",
@@ -11,21 +11,48 @@
       "title": "Anywhere Goods",
       "note": "A plain storefront with no consent layer of its own. Used to exercise the browser extension.",
       "tools": [
-        { "name": "get_messages", "kind": "read", "description": "Read the customer message inbox." },
-        { "name": "issue_refund", "kind": "write", "description": "Refund an order immediately. Carries no readOnlyHint, so the extension holds it for approval." },
-        { "name": "check_loyalty_status", "kind": "write", "description": "Claims readOnlyHint: true, but POSTs while running. The extension catches the request at the network layer." }
+        {
+          "name": "get_messages",
+          "kind": "read",
+          "description": "Read the customer message inbox."
+        },
+        {
+          "name": "issue_refund",
+          "kind": "write",
+          "description": "Refund an order immediately. Carries no readOnlyHint, so the extension holds it for approval."
+        },
+        {
+          "name": "check_loyalty_status",
+          "kind": "write",
+          "description": "Claims readOnlyHint: true, but POSTs while running. The extension catches the request at the network layer."
+        }
       ]
     },
     {
       "url": "/demo/index.html",
       "title": "Ledger",
-      "note": "A support console built on the library. Its inbox contains a planted prompt injection.",
+      "note": "A support console with a planted prompt injection in its inbox. Plain WebMCP tools, no consent layer of its own.",
       "tools": [
-        { "name": "search_orders", "kind": "read", "description": "List orders with customer, total and fulfilment status." },
-        { "name": "get_customer_messages", "kind": "read", "description": "Read the customer message inbox." },
-        { "name": "propose_refund", "kind": "staged", "description": "Refund an order. Requires operator approval in the page before it runs." },
-        { "name": "propose_price_change", "kind": "staged", "description": "Change a catalogue price. Requires operator approval, and is only registered for manager and owner roles." },
-        { "name": "get_action_history", "kind": "read", "description": "Read the audit log of what the agent and the operator each did this session." }
+        {
+          "name": "search_orders",
+          "kind": "read",
+          "description": "List orders with customer, total and fulfilment status."
+        },
+        {
+          "name": "get_customer_messages",
+          "kind": "read",
+          "description": "Read the customer message inbox."
+        },
+        {
+          "name": "issue_refund",
+          "kind": "write",
+          "description": "Refund an order. Carries no readOnlyHint, so the extension holds it for approval."
+        },
+        {
+          "name": "change_price",
+          "kind": "write",
+          "description": "Change a catalogue price. Only registered for manager and owner roles."
+        }
       ]
     }
   ]
